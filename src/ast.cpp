@@ -1,7 +1,7 @@
 #include "ast.h"
 
 int block_cnt = 0;
-int cnt=0;
+static int cnt=0;
 
 void CompUnitAST::Dump() const  {
     std::cout << "CompUnitAST { ";
