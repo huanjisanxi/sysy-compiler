@@ -1,15 +1,12 @@
 #include "ast.h"
 
 int block_cnt = 0;
+int cnt;
 
 void CompUnitAST::Dump() const  {
     std::cout << "CompUnitAST { ";
     func_def->Dump();
     std::cout << " }";
-}
-
-std::string CompUnitAST::koopa_ir() const {
-    return func_def->koopa_ir();
 }
 
 void FuncDefAST::Dump() const  {
@@ -20,26 +17,10 @@ void FuncDefAST::Dump() const  {
     std::cout << " }";
 }
 
-std::string FuncDefAST::koopa_ir() const {
-    std::string str;
-    str += "fun @"+ident+"(): "+func_type->koopa_ir()+" {\n";
-    str += "%entry:\n";
-    str += block->koopa_ir();
-    str += "}\n";
-    return str;
-}
-
 void FuncTypeAST::Dump() const  {
     std::cout << "FuncTypeAST { ";
     std::cout << type ;
     std::cout << " }";
-}
-
-std::string FuncTypeAST::koopa_ir() const {
-    if(type == "int"){
-        return "i32";
-    } 
-    return "i32";
 }
 
 void BlockAST::Dump() const  {
@@ -48,16 +29,40 @@ void BlockAST::Dump() const  {
     std::cout << " }";
 }
 
-std::string BlockAST::koopa_ir() const {
-    return stmt->koopa_ir();
-}
-
 void StmtAST::Dump() const  {
     std::cout << "StmtAST { ";
     std::cout << num;
     std::cout << " }";
 }
 
+std::string CompUnitAST::koopa_ir() const {
+    func_def->koopa_ir();
+    return "";
+}
+
+std::string FuncDefAST::koopa_ir() const {
+    str += "fun @"+ident+"(): ";
+    func_type->koopa_ir();
+    str += " {\n";
+    str += "%entry:\n";
+    block->koopa_ir();
+    str += "}\n";
+    return "";
+}
+
+std::string FuncTypeAST::koopa_ir() const {
+    if(type == "int"){
+        str += "i32";
+    } 
+    return "";
+}
+
+std::string BlockAST::koopa_ir() const {
+    stmt->koopa_ir();
+    return "";
+}
+
 std::string StmtAST::koopa_ir() const {
-    return "\tret "+ num + "\n";
+    str += "\tret "+ num + "\n";
+    return "";
 }

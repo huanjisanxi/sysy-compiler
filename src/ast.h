@@ -5,6 +5,8 @@
 #include <cstring>
 #include "koopa.h"
 
+extern std::string str;
+
 class BaseAST;
 class CompUnitAST;
 class FuncDef;
