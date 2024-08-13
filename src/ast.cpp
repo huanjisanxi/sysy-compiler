@@ -25,7 +25,20 @@ void FuncTypeAST::Dump() const  {
 
 void BlockAST::Dump() const  {
     std::cout << "BlockAST { ";
-    stmt->Dump();
+    block_item->Dump();
+    std::cout << " }";
+}
+
+void BlockItemAST::Dump() const  {
+    std::cout << "BlockItemAST { ";
+    switch(flag){
+        case DECL:
+            decl->Dump();
+            break;
+        case STMT:
+            stmt->Dump();
+            break;
+    }
     std::cout << " }";
 }
 
@@ -64,6 +77,9 @@ void PrimaryExprAST::Dump() const {
         case WITH_BRACKETS:
             expr->Dump();
             break;
+        case LVAL:
+            //TODO
+            break;
     }
     std::cout << " }";
 }
@@ -99,16 +115,48 @@ void MulExprAST::Dump() const {
 }
 
 void LOrExprAST::Dump() const {
-    
+    land_expr->Dump();
 }
 
 void LAndExprAST::Dump() const {
+    eq_expr->Dump();
 }
 
 void EqExprAST::Dump() const {
+    rel_expr->Dump();   
 }
 
 void RelExprAST::Dump() const {
+    add_expr->Dump();
+}
+
+void LValAST::Dump() const {
+    
+}
+
+void DeclAST::Dump() const {
+    const_decl->Dump();
+}
+
+void ConstDeclAST::Dump() const {
+    const_def->Dump();
+}
+
+void BTypeAST::Dump() const {
+
+}
+
+void ConstDefAST::Dump() const {
+    const_init_val->Dump();
+}
+
+
+void ConstInitValAST::Dump() const {
+    const_expr->Dump();
+}
+
+void ConstExprAST::Dump() const {
+    expr->Dump();
 }
 
 std::string CompUnitAST::koopa_ir() const {
@@ -134,7 +182,19 @@ std::string FuncTypeAST::koopa_ir() const {
 }
 
 std::string BlockAST::koopa_ir() const {
-    stmt->koopa_ir();
+    block_item->koopa_ir();
+    return "";
+}
+
+std::string BlockItemAST::koopa_ir() const {
+    switch(flag){
+        case DECL:
+            decl->koopa_ir();
+            break;
+        case STMT:
+            stmt->koopa_ir();
+            break;
+    }
     return "";
 }
 
@@ -183,6 +243,9 @@ std::string PrimaryExprAST::koopa_ir() const {
             break;
         case WITH_BRACKETS:
             ret = expr->koopa_ir();
+            break;
+        case LVAL:
+            //TODO
             break;
     }
     return ret;
@@ -335,4 +398,33 @@ std::string RelExprAST::koopa_ir() const {
             break;
     }
     return ret;
+}
+
+std::string LValAST::koopa_ir() const {
+    return "";
+}
+
+std::string DeclAST::koopa_ir() const {
+    return "";
+}
+
+std::string ConstDeclAST::koopa_ir() const {
+    return "";
+}
+
+std::string BTypeAST::koopa_ir() const {
+    return "";
+}
+
+std::string ConstDefAST::koopa_ir() const {
+    return "";
+}
+
+
+std::string ConstInitValAST::koopa_ir() const {
+    return "";
+}
+
+std::string ConstExprAST::koopa_ir() const {
+    return "";
 }

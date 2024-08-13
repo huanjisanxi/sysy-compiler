@@ -25,14 +25,17 @@ using namespace std;
   std::string *str_val;
   int int_val;
   BaseAST *ast_val;
+  BaseExprAST *expr_ast_val;
 }
 
 %token INT VOID RETURN CONST IF ELSE WHILE BREAK CONTINUE
-%token <str_val> IDENT
+%token <str_val> IDENT 
 %token <int_val> INT_CONST
 
-%type <ast_val> FuncDef FuncType Block Stmt Expr UnaryExpr PrimaryExpr AddExpr MulExpr
-%type <ast_val> LOrExpr LAndExpr EqExpr RelExpr
+%type <ast_val> FuncDef FuncType Block Stmt BlockItem
+%type <expr_ast_val> Expr UnaryExpr PrimaryExpr AddExpr MulExpr LOrExpr LAndExpr EqExpr RelExpr ConstExpr
+%type <ast_val> LVal Decl ConstDecl ConstDef ConstInitVal 
+%type <ast_val> BType
 %type <int_val> Number
 
 %%
@@ -64,17 +67,39 @@ FuncType
   ;
 
 Block
-  : '{' Stmt '}' {
+  : '{' BlockItem '}' {
     auto block = new BlockAST();
-    block->stmt = unique_ptr<BaseAST>($2);
+    block->block_item = unique_ptr<BaseAST>($2);
     $$ = block;
   }
   ;
 
+BlockItemList
+  : BlockItem {
+  }
+  | BlockItemList BlockItem {
+  }
+  ;
+
+BlockItem
+  : Decl {
+    auto block_item = new BlockItemAST();
+    block_item->flag = BlockItemAST::DECL;
+    block_item->decl = unique_ptr<BaseAST>($1);
+    $$ = block_item;
+  }
+  | Stmt {
+    auto block_item = new BlockItemAST();
+    block_item->flag = BlockItemAST::STMT;
+    block_item->stmt = unique_ptr<BaseAST>($1);
+    $$ = block_item;
+  }
+  ;
+  
 Stmt
   : RETURN Expr ';' {
     auto stmt = new StmtAST();
-    stmt->expr = unique_ptr<BaseAST>($2);
+    stmt->expr = unique_ptr<BaseExprAST>($2);
     $$ = stmt;
   }
   ;
@@ -82,7 +107,8 @@ Stmt
 Expr 
   : LOrExpr {
     auto expr = new ExprAST();
-    expr->lor_expr = unique_ptr<BaseAST>($1);
+    expr->lor_expr = unique_ptr<BaseExprAST>($1);
+    expr->val = $1->val;
     $$ = expr;
   }
   ;
@@ -91,28 +117,32 @@ UnaryExpr
   : PrimaryExpr {
     auto unary_expr = new UnaryExprAST();
     unary_expr->flag=UnaryExprAST::PRIMARY_EXPR;
-    unary_expr->primary_expr = unique_ptr<BaseAST>($1);
+    unary_expr->primary_expr = unique_ptr<BaseExprAST>($1);
+    unary_expr->val = $1->val;
     $$ = unary_expr;
   }
   | '+' UnaryExpr {
     auto unary_expr = new UnaryExprAST();
     unary_expr->flag=UnaryExprAST::OP_UNARY;
     unary_expr->op = "+";
-    unary_expr->unary_expr = unique_ptr<BaseAST>($2);
+    unary_expr->unary_expr = unique_ptr<BaseExprAST>($2);
+    unary_expr->val = $2->val;  
     $$ = unary_expr;
   }
   | '-' UnaryExpr {
     auto unary_expr = new UnaryExprAST();
     unary_expr->flag=UnaryExprAST::OP_UNARY;
     unary_expr->op = "-";
-    unary_expr->unary_expr = unique_ptr<BaseAST>($2);
+    unary_expr->unary_expr = unique_ptr<BaseExprAST>($2);
+    unary_expr->val = -$2->val;
     $$ = unary_expr;
   }
   | '!' UnaryExpr {
     auto unary_expr = new UnaryExprAST();
     unary_expr->flag=UnaryExprAST::OP_UNARY;
     unary_expr->op = "!";
-    unary_expr->unary_expr = unique_ptr<BaseAST>($2);
+    unary_expr->unary_expr = unique_ptr<BaseExprAST>($2);
+    unary_expr->val =!$2->val;
     $$ = unary_expr;
   }
   ;
@@ -122,12 +152,20 @@ PrimaryExpr
     auto primary_expr = new PrimaryExprAST();
     primary_expr->flag=PrimaryExprAST::NUMBER;
     primary_expr->number = to_string($1);
+    primary_expr->val = $1;
     $$ = primary_expr;
   }
   | '(' Expr ')' {
     auto primary_expr = new PrimaryExprAST();
     primary_expr->flag=PrimaryExprAST::WITH_BRACKETS;
-    primary_expr->expr = unique_ptr<BaseAST>($2);
+    primary_expr->expr = unique_ptr<BaseExprAST>($2);
+    primary_expr->val = $2->val;
+    $$ = primary_expr;
+  }
+  | LVal {
+    auto primary_expr = new PrimaryExprAST();
+    primary_expr->flag=PrimaryExprAST::LVAL;
+    primary_expr->lval = unique_ptr<BaseAST>($1);
     $$ = primary_expr;
   }
   ;
@@ -136,23 +174,26 @@ AddExpr
   : MulExpr {
     auto add_expr = new AddExprAST();
     add_expr->flag = AddExprAST::ONLY_MUL;
-    add_expr->mul_expr = unique_ptr<BaseAST>($1);
+    add_expr->mul_expr = unique_ptr<BaseExprAST>($1);
+    add_expr->val = $1->val;
     $$ = add_expr;
   }
   | AddExpr '+' MulExpr {
     auto add_expr = new AddExprAST();
     add_expr->flag = AddExprAST::ADD_MUL;
-    add_expr->add_expr = unique_ptr<BaseAST>($1);
+    add_expr->add_expr = unique_ptr<BaseExprAST>($1);
     add_expr->op = "+";
-    add_expr->mul_expr = unique_ptr<BaseAST>($3);
+    add_expr->mul_expr = unique_ptr<BaseExprAST>($3);
+    add_expr->val = $1->val + $3->val;
     $$ = add_expr;
   }
   | AddExpr '-' MulExpr {
     auto add_expr = new AddExprAST();
     add_expr->flag = AddExprAST::ADD_MUL;
-    add_expr->add_expr = unique_ptr<BaseAST>($1);
+    add_expr->add_expr = unique_ptr<BaseExprAST>($1);
     add_expr->op = "-";
-    add_expr->mul_expr = unique_ptr<BaseAST>($3);
+    add_expr->mul_expr = unique_ptr<BaseExprAST>($3);
+    add_expr->val = $1->val - $3->val;
     $$ = add_expr;
   }
   ;
@@ -161,31 +202,35 @@ MulExpr
   : UnaryExpr {
     auto mul_expr = new MulExprAST();
     mul_expr->flag = MulExprAST::ONLY_UNARY;
-    mul_expr->unary_expr = unique_ptr<BaseAST>($1);
+    mul_expr->unary_expr = unique_ptr<BaseExprAST>($1);
+    mul_expr->val = $1->val;
     $$ = mul_expr;
   }
   | MulExpr '*' UnaryExpr {
     auto mul_expr = new MulExprAST();
     mul_expr->flag = MulExprAST::MUL_UNARY;
-    mul_expr->mul_expr = unique_ptr<BaseAST>($1);
+    mul_expr->mul_expr = unique_ptr<BaseExprAST>($1);
     mul_expr->op = "*";
-    mul_expr->unary_expr = unique_ptr<BaseAST>($3);
+    mul_expr->unary_expr = unique_ptr<BaseExprAST>($3);
+    mul_expr->val = $1->val * $3->val;
     $$ = mul_expr;
   }
   | MulExpr '/' UnaryExpr {
     auto mul_expr = new MulExprAST();
     mul_expr->flag = MulExprAST::MUL_UNARY;
-    mul_expr->mul_expr = unique_ptr<BaseAST>($1);
+    mul_expr->mul_expr = unique_ptr<BaseExprAST>($1);
     mul_expr->op = "/";
-    mul_expr->unary_expr = unique_ptr<BaseAST>($3);
+    mul_expr->unary_expr = unique_ptr<BaseExprAST>($3);
+    mul_expr->val = $1->val / $3->val;
     $$ = mul_expr;
   }
   | MulExpr '%' UnaryExpr {
     auto mul_expr = new MulExprAST();
     mul_expr->flag = MulExprAST::MUL_UNARY;
-    mul_expr->mul_expr = unique_ptr<BaseAST>($1);
+    mul_expr->mul_expr = unique_ptr<BaseExprAST>($1);
     mul_expr->op = "%";
-    mul_expr->unary_expr = unique_ptr<BaseAST>($3);
+    mul_expr->unary_expr = unique_ptr<BaseExprAST>($3);
+    mul_expr->val = $1->val % $3->val;
     $$ = mul_expr;
   }
   ;
@@ -194,15 +239,17 @@ LOrExpr
   : LAndExpr {
     auto lor_expr = new LOrExprAST();
     lor_expr->flag = LOrExprAST::ONLY_LAND;
-    lor_expr->land_expr = unique_ptr<BaseAST>($1);
+    lor_expr->land_expr = unique_ptr<BaseExprAST>($1);
+    lor_expr->val = $1->val;
     $$ = lor_expr;
   }
   | LOrExpr '|' '|' LAndExpr {
     auto lor_expr = new LOrExprAST();
     lor_expr->flag = LOrExprAST::LOR_LAND;
-    lor_expr->lor_expr = unique_ptr<BaseAST>($1);
+    lor_expr->lor_expr = unique_ptr<BaseExprAST>($1);
     lor_expr->op = "||";
-    lor_expr->land_expr = unique_ptr<BaseAST>($4);
+    lor_expr->land_expr = unique_ptr<BaseExprAST>($4);
+    lor_expr->val = $1->val || $4->val;
     $$ = lor_expr;
   }
   ;
@@ -211,15 +258,17 @@ LAndExpr
   : EqExpr {
     auto land_expr = new LAndExprAST();
     land_expr->flag = LAndExprAST::ONLY_EQ;
-    land_expr->eq_expr = unique_ptr<BaseAST>($1);
+    land_expr->eq_expr = unique_ptr<BaseExprAST>($1);
+    land_expr->val = $1->val;
     $$ = land_expr;
   }
   | LAndExpr '&' '&' EqExpr {
     auto land_expr = new LAndExprAST();
     land_expr->flag = LAndExprAST::LAND_EQ;
-    land_expr->land_expr = unique_ptr<BaseAST>($1);
+    land_expr->land_expr = unique_ptr<BaseExprAST>($1);
     land_expr->op = "&&";
-    land_expr->eq_expr = unique_ptr<BaseAST>($4);
+    land_expr->eq_expr = unique_ptr<BaseExprAST>($4);
+    land_expr->val = $1->val && $4->val;
     $$ = land_expr;
   }
   ;
@@ -228,23 +277,26 @@ EqExpr
   : RelExpr {
     auto eq_expr = new EqExprAST();
     eq_expr->flag = EqExprAST::ONLY_REL;
-    eq_expr->rel_expr = unique_ptr<BaseAST>($1);
+    eq_expr->rel_expr = unique_ptr<BaseExprAST>($1);
+    eq_expr->val = $1->val;
     $$ = eq_expr;
   }
   | EqExpr '=' '=' RelExpr {
     auto eq_expr = new EqExprAST();
     eq_expr->flag = EqExprAST::EQ_REL;
-    eq_expr->eq_expr = unique_ptr<BaseAST>($1);
+    eq_expr->eq_expr = unique_ptr<BaseExprAST>($1);
     eq_expr->op = "==";
-    eq_expr->rel_expr = unique_ptr<BaseAST>($4);
+    eq_expr->rel_expr = unique_ptr<BaseExprAST>($4);
+    eq_expr->val = $1->val == $4->val;
     $$ = eq_expr;
   }
   | EqExpr '!' '=' RelExpr {
     auto eq_expr = new EqExprAST();
     eq_expr->flag = EqExprAST::EQ_REL;
-    eq_expr->eq_expr = unique_ptr<BaseAST>($1);
+    eq_expr->eq_expr = unique_ptr<BaseExprAST>($1);
     eq_expr->op = "!=";
-    eq_expr->rel_expr = unique_ptr<BaseAST>($4);
+    eq_expr->rel_expr = unique_ptr<BaseExprAST>($4);
+    eq_expr->val = $1->val != $4->val;
     $$ = eq_expr;
   }
   ;
@@ -253,40 +305,104 @@ RelExpr
   : AddExpr {
     auto rel_expr = new RelExprAST();
     rel_expr->flag = RelExprAST::ONLY_ADD;
-    rel_expr->add_expr = unique_ptr<BaseAST>($1);
+    rel_expr->add_expr = unique_ptr<BaseExprAST>($1);
+    rel_expr->val = $1->val;
     $$ = rel_expr;
   }
   | RelExpr '<' AddExpr {
     auto rel_expr = new RelExprAST();
     rel_expr->flag = RelExprAST::REL_ADD;
-    rel_expr->rel_expr = unique_ptr<BaseAST>($1);
+    rel_expr->rel_expr = unique_ptr<BaseExprAST>($1);
     rel_expr->op = "<";
-    rel_expr->add_expr = unique_ptr<BaseAST>($3);
+    rel_expr->add_expr = unique_ptr<BaseExprAST>($3);
+    rel_expr->val = $1->val < $3->val;
     $$ = rel_expr;
   }
   | RelExpr '>' AddExpr {
     auto rel_expr = new RelExprAST();
     rel_expr->flag = RelExprAST::REL_ADD;
-    rel_expr->rel_expr = unique_ptr<BaseAST>($1);
+    rel_expr->rel_expr = unique_ptr<BaseExprAST>($1);
     rel_expr->op = ">";
-    rel_expr->add_expr = unique_ptr<BaseAST>($3);
+    rel_expr->add_expr = unique_ptr<BaseExprAST>($3);
+    rel_expr->val = $1->val > $3->val;
     $$ = rel_expr;
   }
   | RelExpr '<' '=' AddExpr {
     auto rel_expr = new RelExprAST();
     rel_expr->flag = RelExprAST::REL_ADD;
-    rel_expr->rel_expr = unique_ptr<BaseAST>($1);
+    rel_expr->rel_expr = unique_ptr<BaseExprAST>($1);
     rel_expr->op = "<=";
-    rel_expr->add_expr = unique_ptr<BaseAST>($4);
+    rel_expr->add_expr = unique_ptr<BaseExprAST>($4);
+    rel_expr->val = $1->val <= $4->val;
     $$ = rel_expr;
   }
   | RelExpr '>' '=' AddExpr {
     auto rel_expr = new RelExprAST();
     rel_expr->flag = RelExprAST::REL_ADD;
-    rel_expr->rel_expr = unique_ptr<BaseAST>($1);
+    rel_expr->rel_expr = unique_ptr<BaseExprAST>($1);
     rel_expr->op = ">=";
-    rel_expr->add_expr = unique_ptr<BaseAST>($4);
+    rel_expr->add_expr = unique_ptr<BaseExprAST>($4);
+    rel_expr->val = $1->val >= $4->val;
     $$ = rel_expr;
+  }
+  ;
+
+LVal
+  : IDENT {
+    auto lval = new LValAST();
+    lval->ident = *unique_ptr<string>($1);
+    $$ = lval;
+  }
+  ;
+
+Decl
+  : ConstDecl {
+    auto decl = new DeclAST();
+    decl->const_decl = unique_ptr<BaseAST>($1);
+    $$ = decl;
+  }
+  ;
+
+ConstDecl
+  : CONST BType ConstDef ';' {
+    auto const_decl = new ConstDeclAST();
+    const_decl->btype = unique_ptr<BaseAST>($2);
+    const_decl->const_def = unique_ptr<BaseAST>($3);
+    $$ = const_decl;
+  }
+  ;
+
+BType
+  : INT {
+    auto btype = new BTypeAST();
+    btype->type = string("int");
+    $$ = btype;
+  }
+  ;
+
+ConstDef
+  : IDENT '=' ConstInitVal {
+    auto const_def = new ConstDefAST();
+    const_def->ident = *unique_ptr<string>($1);
+    const_def->const_init_val = unique_ptr<BaseAST>($3);
+    $$ = const_def;
+  }
+  ;
+
+ConstInitVal
+  : ConstExpr {
+    auto const_init_val = new ConstInitValAST();
+    const_init_val->const_expr = unique_ptr<BaseExprAST>($1);
+    $$ = const_init_val;
+  }
+  ;
+
+ConstExpr 
+  : Expr {
+    auto const_expr = new ConstExprAST();
+    const_expr->expr = unique_ptr<BaseExprAST>($1);
+    const_expr->val = $1->val;
+    $$ = const_expr;
   }
   ;
 

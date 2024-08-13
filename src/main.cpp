@@ -6,6 +6,7 @@
 #include <string.h>
 #include "ast.h"
 #include "visit.h"
+#include <unordered_map>
 
 using namespace std;
 
@@ -18,6 +19,7 @@ extern FILE *yyin;
 extern int yyparse(unique_ptr<BaseAST> &ast);
 
 std::string str;
+std::unordered_map<string, int> symbol_table;
 
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
@@ -39,6 +41,11 @@ int main(int argc, const char *argv[]) {
   if(strcmp(mode, "-ast") == 0){
     ast->Dump();
     cout<<endl;
+  }
+  else if(strcmp(mode, "-test") == 0){
+    ast->koopa_ir();
+    std::cout<<str<<std::endl;
+    fclose(stdout);
   }
   else if(strcmp(mode, "-koopa") == 0){
     freopen(output, "w", stdout);
