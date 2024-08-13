@@ -7,6 +7,7 @@
 #include "ast.h"
 #include "visit.h"
 #include <unordered_map>
+#include <set>
 
 using namespace std;
 
@@ -20,6 +21,8 @@ extern int yyparse(unique_ptr<BaseAST> &ast);
 
 std::string str;
 std::unordered_map<string, int> symbol_table;
+std::set<string> const_symbol;
+int test_val ;
 
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
@@ -37,6 +40,12 @@ int main(int argc, const char *argv[]) {
   unique_ptr<BaseAST> ast;
   auto ret = yyparse(ast);
   assert(!ret);
+
+  std::cout<<"test_val = "<<test_val<<std::endl;
+  cout<<"symbol_table size = "<<symbol_table.size()<<endl;
+  for(auto it = symbol_table.begin(); it!= symbol_table.end(); it++){
+    cout<<it->first<<" : "<<it->second<<endl;
+  }
 
   if(strcmp(mode, "-ast") == 0){
     ast->Dump();

@@ -15,6 +15,9 @@
 int yylex();
 void yyerror(std::unique_ptr<BaseAST> &ast, const char *s);
 
+extern std::unordered_map<std::string, int> symbol_table;
+extern std::set<std::string> const_symbol;
+
 using namespace std;
 
 %}
@@ -26,6 +29,7 @@ using namespace std;
   int int_val;
   BaseAST *ast_val;
   BaseExprAST *expr_ast_val;
+  std::vector<std::unique_ptr<BaseAST>> *vec_val;
 }
 
 %token INT VOID RETURN CONST IF ELSE WHILE BREAK CONTINUE
@@ -33,10 +37,11 @@ using namespace std;
 %token <int_val> INT_CONST
 
 %type <ast_val> FuncDef FuncType Block Stmt BlockItem
-%type <expr_ast_val> Expr UnaryExpr PrimaryExpr AddExpr MulExpr LOrExpr LAndExpr EqExpr RelExpr ConstExpr
-%type <ast_val> LVal Decl ConstDecl ConstDef ConstInitVal 
-%type <ast_val> BType
+%type <expr_ast_val> Expr UnaryExpr PrimaryExpr AddExpr MulExpr LOrExpr LAndExpr EqExpr RelExpr ConstExpr ConstInitVal LVal 
+%type <ast_val> Decl ConstDecl ConstDef 
+%type <str_val> BType
 %type <int_val> Number
+%type <vec_val> BlockItemList ConstDefList
 
 %%
 
@@ -67,17 +72,24 @@ FuncType
   ;
 
 Block
-  : '{' BlockItem '}' {
-    auto block = new BlockAST();
-    block->block_item = unique_ptr<BaseAST>($2);
-    $$ = block;
+  : '{' BlockItemList '}' {
+    auto ast = new BlockAST();
+    vector<unique_ptr<BaseAST> > *vec = ($2);
+    for (auto it = vec->begin(); it != vec->end(); it++)
+      ast->block_item_list.push_back(move(*it));
+    $$ = ast;
   }
   ;
 
 BlockItemList
-  : BlockItem {
+  : {
+    vector<unique_ptr<BaseAST>> *vec = new vector<unique_ptr<BaseAST>>;
+    $$ = vec;
   }
   | BlockItemList BlockItem {
+    vector<unique_ptr<BaseAST>> *vec = ($1);
+    vec->push_back(unique_ptr<BaseAST>($2));
+    $$ = vec;
   }
   ;
 
@@ -166,6 +178,7 @@ PrimaryExpr
     auto primary_expr = new PrimaryExprAST();
     primary_expr->flag=PrimaryExprAST::LVAL;
     primary_expr->lval = unique_ptr<BaseAST>($1);
+    primary_expr->val = $1->val;
     $$ = primary_expr;
   }
   ;
@@ -351,6 +364,7 @@ LVal
   : IDENT {
     auto lval = new LValAST();
     lval->ident = *unique_ptr<string>($1);
+    lval->val = symbol_table[lval->ident];
     $$ = lval;
   }
   ;
@@ -364,19 +378,31 @@ Decl
   ;
 
 ConstDecl
-  : CONST BType ConstDef ';' {
+  : CONST BType ConstDefList ';'{
     auto const_decl = new ConstDeclAST();
-    const_decl->btype = unique_ptr<BaseAST>($2);
-    const_decl->const_def = unique_ptr<BaseAST>($3);
+    vector<unique_ptr<BaseAST>> *vec = ($3);
+    for (auto it = vec->begin(); it != vec->end(); it++)
+      const_decl->const_def_list.push_back(move(*it));
     $$ = const_decl;
+  }
+  ;
+
+ConstDefList
+  : ConstDef {
+    vector<unique_ptr<BaseAST>> *vec = new vector<unique_ptr<BaseAST>>;
+    vec->push_back(unique_ptr<BaseAST>($1));
+    $$ = vec;
+  }
+  | ConstDefList ',' ConstDef {
+    vector<unique_ptr<BaseAST>> *vec = ($1);
+    vec->push_back(unique_ptr<BaseAST>($3));
+    $$ = vec;
   }
   ;
 
 BType
   : INT {
-    auto btype = new BTypeAST();
-    btype->type = string("int");
-    $$ = btype;
+    $$ = new string("int");
   }
   ;
 
@@ -384,7 +410,9 @@ ConstDef
   : IDENT '=' ConstInitVal {
     auto const_def = new ConstDefAST();
     const_def->ident = *unique_ptr<string>($1);
-    const_def->const_init_val = unique_ptr<BaseAST>($3);
+    const_def->const_init_val = unique_ptr<BaseExprAST>($3);
+    symbol_table[const_def->ident] = $3->val;
+    const_symbol.insert(const_def->ident);
     $$ = const_def;
   }
   ;
@@ -393,6 +421,7 @@ ConstInitVal
   : ConstExpr {
     auto const_init_val = new ConstInitValAST();
     const_init_val->const_expr = unique_ptr<BaseExprAST>($1);
+    const_init_val->val = $1->val;
     $$ = const_init_val;
   }
   ;

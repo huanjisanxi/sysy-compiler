@@ -5,9 +5,13 @@
 #include <cstring>
 #include "koopa.h"
 #include <unordered_map>
+#include <vector>
+#include <set>
 
 extern std::string str;
 extern std::unordered_map<std::string, int> symbol_table;
+extern std::set<std::string> const_symbol;
+extern int test_val;
 
 class BaseAST;
 class CompUnitAST;
@@ -29,7 +33,6 @@ class RelExpr;
 class LValAST;
 class DeclAST;
 class ConstDeclAST;
-class BTypeAST;
 class ConstDef;
 class ConstInitValAST;
 class ConstExprAST;
@@ -74,7 +77,8 @@ public:
 
 class BlockAST : public BaseAST{
 public:
-    std::unique_ptr<BaseAST> block_item;
+    // std::unique_ptr<BaseAST> block_item;
+  std::vector<std::unique_ptr<BaseAST>> block_item_list;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -96,6 +100,7 @@ public:
 
 class StmtAST : public BaseAST{
 public:
+    
     std::unique_ptr<BaseExprAST> expr;
 
     void Dump() const override;
@@ -242,10 +247,9 @@ public:
     std::string koopa_ir() const override;
 };
 
-class LValAST : public BaseAST{
+class LValAST : public BaseExprAST{
 public:
     std::string ident;
-    int val;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -261,16 +265,9 @@ public:
 
 class ConstDeclAST : public BaseAST{
 public:
-    std::unique_ptr<BaseAST> btype;
-    std::unique_ptr<BaseAST> const_def;
-
-    void Dump() const override;
-    std::string koopa_ir() const override;
-};
-
-class BTypeAST: public BaseAST{
-public:
-    std::string type;
+    std::string btype;
+    // std::unique_ptr<BaseAST> const_def;
+    std::vector<std::unique_ptr<BaseAST>> const_def_list;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -285,7 +282,7 @@ public:
     std::string koopa_ir() const override;
 };
 
-class ConstInitValAST : public BaseAST{
+class ConstInitValAST : public BaseExprAST{
 public:
     std::unique_ptr<BaseExprAST> const_expr;
 

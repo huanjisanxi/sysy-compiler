@@ -25,7 +25,10 @@ void FuncTypeAST::Dump() const  {
 
 void BlockAST::Dump() const  {
     std::cout << "BlockAST { ";
-    block_item->Dump();
+    for (auto& item : block_item_list) {
+        item->Dump();
+        std::cout << " ,";
+    }
     std::cout << " }";
 }
 
@@ -139,11 +142,8 @@ void DeclAST::Dump() const {
 }
 
 void ConstDeclAST::Dump() const {
-    const_def->Dump();
-}
-
-void BTypeAST::Dump() const {
-
+    for(auto& const_def : const_def_list)
+        const_def->Dump();
 }
 
 void ConstDefAST::Dump() const {
@@ -182,7 +182,9 @@ std::string FuncTypeAST::koopa_ir() const {
 }
 
 std::string BlockAST::koopa_ir() const {
-    block_item->koopa_ir();
+    for (auto& item: block_item_list){
+        item->koopa_ir();
+    }
     return "";
 }
 
@@ -201,6 +203,9 @@ std::string BlockItemAST::koopa_ir() const {
 std::string StmtAST::koopa_ir() const {
     // str += "\tret "+ num + "\n";
     auto res = expr->koopa_ir();
+    if(symbol_table.find(res) != symbol_table.end()){
+        res = std::to_string(symbol_table[res]);
+    }
     str += "\tret " + res + "\n";
     return "";
 }
@@ -245,7 +250,7 @@ std::string PrimaryExprAST::koopa_ir() const {
             ret = expr->koopa_ir();
             break;
         case LVAL:
-            //TODO
+            ret = lval->koopa_ir();
             break;
     }
     return ret;
@@ -303,10 +308,6 @@ std::string LOrExprAST::koopa_ir() const {
             ret = land_expr->koopa_ir();
             break;
         case LOR_LAND:
-        //     auto res1 = lor_expr->koopa_ir();
-        //     auto res2 = land_expr->koopa_ir();
-        //     ret = "%"+std::to_string(cnt++);
-        //     str += "\t" + ret + " = or " + res1 + ", " + res2 + "\n"; 
             auto res1 = lor_expr->koopa_ir();
             auto res2 = land_expr->koopa_ir();
 
@@ -314,11 +315,8 @@ std::string LOrExprAST::koopa_ir() const {
             std::string temp2 = "%" + std::to_string(cnt++);
             ret = "%" + std::to_string(cnt++);
 
-            // 比较 res1 和 0 是否相等，结果为 temp1 (0 或 1)
             str += "\t" + temp1 + " = ne " + res1 + ", 0\n";
-            // 比较 res2 和 0 是否相等，结果为 temp2 (0 或 1)
             str += "\t" + temp2 + " = ne " + res2 + ", 0\n";
-            // 使用 or 运算得到最终结果
             str += "\t" + ret + " = or " + temp1 + ", " + temp2 + "\n";
     }
     return ret;
@@ -331,10 +329,6 @@ std::string LAndExprAST::koopa_ir() const {
             ret = eq_expr->koopa_ir();
             break;
         case LAND_EQ:
-            // auto res1 = land_expr->koopa_ir();
-            // auto res2 = eq_expr->koopa_ir();
-            // ret = "%"+std::to_string(cnt++);
-            // str += "\t" + ret + " = and " + res1 + ", " + res2 + "\n";
             auto res1 = land_expr->koopa_ir();
             auto res2 = eq_expr->koopa_ir();
 
@@ -342,11 +336,8 @@ std::string LAndExprAST::koopa_ir() const {
             std::string temp2 = "%" + std::to_string(cnt++);
             ret = "%" + std::to_string(cnt++);
 
-            // 比较 res1 和 0 是否相等，结果为 temp1 (0 或 1)
             str += "\t" + temp1 + " = ne " + res1 + ", 0\n";
-            // 比较 res2 和 0 是否相等，结果为 temp2 (0 或 1)
             str += "\t" + temp2 + " = ne " + res2 + ", 0\n";
-            // 使用 and 运算得到最终结果
             str += "\t" + ret + " = and " + temp1 + ", " + temp2 + "\n";
     }
     return ret;
@@ -401,7 +392,10 @@ std::string RelExprAST::koopa_ir() const {
 }
 
 std::string LValAST::koopa_ir() const {
-    return "";
+    if(const_symbol.find(ident) != const_symbol.end()){
+        return std::to_string(val);
+    }
+    return ident;
 }
 
 std::string DeclAST::koopa_ir() const {
@@ -412,19 +406,15 @@ std::string ConstDeclAST::koopa_ir() const {
     return "";
 }
 
-std::string BTypeAST::koopa_ir() const {
-    return "";
-}
-
 std::string ConstDefAST::koopa_ir() const {
     return "";
 }
-
 
 std::string ConstInitValAST::koopa_ir() const {
     return "";
 }
 
 std::string ConstExprAST::koopa_ir() const {
-    return "";
+    std::string ret = expr->koopa_ir();
+    return ret;
 }
