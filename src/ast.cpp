@@ -3,6 +3,8 @@
 int block_cnt = 0;
 static int cnt=0;
 
+// for Dump
+
 void CompUnitAST::Dump() const  {
     std::cout << "CompUnitAST { ";
     func_def->Dump();
@@ -137,6 +139,9 @@ void LValAST::Dump() const {
     
 }
 
+void LeftLValAST::Dump() const {
+}
+
 void DeclAST::Dump() const {
     const_decl->Dump();
 }
@@ -150,7 +155,6 @@ void ConstDefAST::Dump() const {
     const_init_val->Dump();
 }
 
-
 void ConstInitValAST::Dump() const {
     const_expr->Dump();
 }
@@ -158,6 +162,23 @@ void ConstInitValAST::Dump() const {
 void ConstExprAST::Dump() const {
     expr->Dump();
 }
+
+void VarDeclAST::Dump() const {
+    for(auto& var_def : var_def_list)
+        var_def->Dump();
+}
+
+void VarDefAST::Dump() const {
+    //TODO
+    var_init_val->Dump();
+}
+
+
+void VarInitValAST::Dump() const {
+    expr->Dump();
+}
+
+// for koopa_ir
 
 std::string CompUnitAST::koopa_ir() const {
     func_def->koopa_ir();
@@ -168,7 +189,6 @@ std::string FuncDefAST::koopa_ir() const {
     str += "fun @"+ident+"(): ";
     func_type->koopa_ir();
     str += " {\n";
-    str += "%entry:\n";
     block->koopa_ir();
     str += "}\n";
     return "";
@@ -182,6 +202,7 @@ std::string FuncTypeAST::koopa_ir() const {
 }
 
 std::string BlockAST::koopa_ir() const {
+    str += "%entry:\n";
     for (auto& item: block_item_list){
         item->koopa_ir();
     }
@@ -201,12 +222,16 @@ std::string BlockItemAST::koopa_ir() const {
 }
 
 std::string StmtAST::koopa_ir() const {
-    // str += "\tret "+ num + "\n";
-    auto res = expr->koopa_ir();
-    if(symbol_table.find(res) != symbol_table.end()){
-        res = std::to_string(symbol_table[res]);
+    if(flag == RETURN){
+        auto res = expr->koopa_ir();
+        str += "\tret " + res + "\n";
     }
-    str += "\tret " + res + "\n";
+    else if (flag == ASSIGN){
+        std::string ident = lval->koopa_ir();
+        std::string val = expr->koopa_ir();
+        str += "\tstore " + val + ", @" + ident + "\n";
+        symbol_table[ident].val = expr->getVal();
+    }
     return "";
 }
 
@@ -392,21 +417,39 @@ std::string RelExprAST::koopa_ir() const {
 }
 
 std::string LValAST::koopa_ir() const {
-    if(const_symbol.find(ident) != const_symbol.end()){
-        return std::to_string(val);
+    if(symbol_table[ident].is_const==true){
+        return std::to_string(symbol_table[ident].val);
     }
+    else{
+        std::string ret = "%" + std::to_string(cnt++);
+        str += "\t" + ret + " = load @" + ident + "\n"; 
+        return ret;
+    }
+}
+
+std::string LeftLValAST::koopa_ir() const {
     return ident;
 }
 
 std::string DeclAST::koopa_ir() const {
+    if(flag==CONST_DECL){
+        const_decl->koopa_ir();
+    }
+    else if(flag==VAR_DECL){
+        var_decl->koopa_ir();
+    }
     return "";
 }
 
 std::string ConstDeclAST::koopa_ir() const {
+    for(auto& item: const_def_list){
+        item->koopa_ir();
+    }
     return "";
 }
 
 std::string ConstDefAST::koopa_ir() const {
+    symbol_table[ident].val = const_init_val->getVal();
     return "";
 }
 
@@ -417,4 +460,28 @@ std::string ConstInitValAST::koopa_ir() const {
 std::string ConstExprAST::koopa_ir() const {
     std::string ret = expr->koopa_ir();
     return ret;
+}
+
+std::string VarDeclAST::koopa_ir() const {
+    for(auto& item: var_def_list){
+        item->koopa_ir();
+    }
+    return "";
+}
+
+std::string VarDefAST::koopa_ir() const {
+    std::string type;
+    if(symbol_table[ident].type=="int"){
+        type = "i32";
+    }
+    str += "\t@" + ident + " = alloc " + type + '\n';
+    if(symbol_table[ident].no_init==false){
+        str += "\tstore " + var_init_val->koopa_ir() + ", @" + ident + "\n";
+        symbol_table[ident].val = var_init_val->getVal();
+    }
+    return "";
+}
+
+std::string VarInitValAST::koopa_ir() const {
+    return expr->koopa_ir();
 }

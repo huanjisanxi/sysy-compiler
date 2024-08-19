@@ -10,13 +10,13 @@
 #include <memory>
 #include <string>
 #include "ast.h"
+#include "my_var.h"
 
 // 声明 lexer 函数和错误处理函数
 int yylex();
 void yyerror(std::unique_ptr<BaseAST> &ast, const char *s);
 
-extern std::unordered_map<std::string, int> symbol_table;
-extern std::set<std::string> const_symbol;
+extern std::unordered_map<std::string, MyVar> symbol_table;
 
 using namespace std;
 
@@ -37,11 +37,13 @@ using namespace std;
 %token <int_val> INT_CONST
 
 %type <ast_val> FuncDef FuncType Block Stmt BlockItem
-%type <expr_ast_val> Expr UnaryExpr PrimaryExpr AddExpr MulExpr LOrExpr LAndExpr EqExpr RelExpr ConstExpr ConstInitVal LVal 
+%type <expr_ast_val> Expr UnaryExpr PrimaryExpr AddExpr MulExpr LOrExpr LAndExpr EqExpr RelExpr ConstExpr ConstInitVal LVal LeftLVal 
 %type <ast_val> Decl ConstDecl ConstDef 
+%type <ast_val> VarDecl VarDef 
+%type <expr_ast_val> VarInitVal 
 %type <str_val> BType
 %type <int_val> Number
-%type <vec_val> BlockItemList ConstDefList
+%type <vec_val> BlockItemList ConstDefList VarDefList
 
 %%
 
@@ -111,10 +113,27 @@ BlockItem
 Stmt
   : RETURN Expr ';' {
     auto stmt = new StmtAST();
+    stmt->flag = StmtAST::RETURN;
     stmt->expr = unique_ptr<BaseExprAST>($2);
     $$ = stmt;
   }
+  | LeftLVal '=' Expr ';' {
+    auto stmt = new StmtAST();
+    stmt->flag = StmtAST::ASSIGN;
+    stmt->lval = unique_ptr<BaseExprAST>($1);
+    stmt->expr = unique_ptr<BaseExprAST>($3);
+    $$ = stmt;
+  }
   ;
+
+LeftLVal
+  : IDENT {
+    auto lval = new LeftLValAST();
+    lval->ident = *unique_ptr<string>($1);
+    $$ = lval;
+  }
+  ;
+
 
 Expr 
   : LOrExpr {
@@ -177,7 +196,7 @@ PrimaryExpr
   | LVal {
     auto primary_expr = new PrimaryExprAST();
     primary_expr->flag=PrimaryExprAST::LVAL;
-    primary_expr->lval = unique_ptr<BaseAST>($1);
+    primary_expr->lval = unique_ptr<BaseExprAST>($1);
     primary_expr->val = $1->val;
     $$ = primary_expr;
   }
@@ -364,7 +383,7 @@ LVal
   : IDENT {
     auto lval = new LValAST();
     lval->ident = *unique_ptr<string>($1);
-    lval->val = symbol_table[lval->ident];
+    lval->val = symbol_table[lval->ident].val;
     $$ = lval;
   }
   ;
@@ -373,6 +392,13 @@ Decl
   : ConstDecl {
     auto decl = new DeclAST();
     decl->const_decl = unique_ptr<BaseAST>($1);
+    decl->flag = DeclAST::CONST_DECL;
+    $$ = decl;
+  }
+  | VarDecl {
+    auto decl = new DeclAST();
+    decl->var_decl = unique_ptr<BaseAST>($1);
+    decl->flag = DeclAST::VAR_DECL;
     $$ = decl;
   }
   ;
@@ -411,8 +437,7 @@ ConstDef
     auto const_def = new ConstDefAST();
     const_def->ident = *unique_ptr<string>($1);
     const_def->const_init_val = unique_ptr<BaseExprAST>($3);
-    symbol_table[const_def->ident] = $3->val;
-    const_symbol.insert(const_def->ident);
+    symbol_table[const_def->ident] = MyVar("int", $3->val, true);
     $$ = const_def;
   }
   ;
@@ -435,6 +460,53 @@ ConstExpr
   }
   ;
 
+VarDecl
+  : BType VarDefList ';'{
+    auto var_decl = new VarDeclAST();
+    vector<unique_ptr<BaseAST>> *vec = ($2);
+    for (auto it = vec->begin(); it != vec->end(); it++)
+      var_decl->var_def_list.push_back(move(*it));
+    $$ = var_decl;
+  }
+  ;
+
+VarDefList
+  : VarDef {
+    vector<unique_ptr<BaseAST>> *vec = new vector<unique_ptr<BaseAST>>;
+    vec->push_back(unique_ptr<BaseAST>($1));
+    $$ = vec;
+  }
+  | VarDefList ',' VarDef {
+    vector<unique_ptr<BaseAST>> *vec = ($1);
+    vec->push_back(unique_ptr<BaseAST>($3));
+    $$ = vec;
+  }
+  ;
+
+VarDef
+  : IDENT {
+    auto var_def = new VarDefAST();
+    var_def->ident = *unique_ptr<string>($1);
+    symbol_table[var_def->ident] = MyVar("int", 0, false,true);
+    $$ = var_def;
+  }
+  | IDENT '=' VarInitVal {
+    auto var_def = new VarDefAST();
+    var_def->ident = *unique_ptr<string>($1);
+    var_def->var_init_val = unique_ptr<BaseExprAST>($3);
+    symbol_table[var_def->ident] = MyVar("int", $3->val, false);
+    $$ = var_def;
+  }
+  ;
+
+VarInitVal
+  : Expr {
+    auto var_init_val = new VarInitValAST();
+    var_init_val->expr = unique_ptr<BaseExprAST>($1);
+    var_init_val->val = $1->val;
+    $$ = var_init_val;
+  }
+  ;
 
 Number
   : INT_CONST {

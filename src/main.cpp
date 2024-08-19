@@ -8,6 +8,8 @@
 #include "visit.h"
 #include <unordered_map>
 #include <set>
+#include "my_var.h"
+
 
 using namespace std;
 
@@ -18,9 +20,10 @@ using namespace std;
 // 看起来会很烦人, 于是干脆采用这种看起来 dirty 但实际很有效的手段
 extern FILE *yyin;
 extern int yyparse(unique_ptr<BaseAST> &ast);
-
 std::string str;
-std::unordered_map<string, int> symbol_table;
+
+
+std::unordered_map<string, MyVar> symbol_table;
 std::set<string> const_symbol;
 int test_val ;
 
@@ -44,7 +47,7 @@ int main(int argc, const char *argv[]) {
   std::cout<<"test_val = "<<test_val<<std::endl;
   cout<<"symbol_table size = "<<symbol_table.size()<<endl;
   for(auto it = symbol_table.begin(); it!= symbol_table.end(); it++){
-    cout<<it->first<<" : "<<it->second<<endl;
+    cout<<it->first<<" : "<<it->second.val<<"  "<<it->second.type<<"  "<<it->second.is_const<<endl;
   }
 
   if(strcmp(mode, "-ast") == 0){

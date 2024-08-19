@@ -6,11 +6,11 @@
 #include "koopa.h"
 #include <unordered_map>
 #include <vector>
+#include "my_var.h"
 #include <set>
 
 extern std::string str;
-extern std::unordered_map<std::string, int> symbol_table;
-extern std::set<std::string> const_symbol;
+extern std::unordered_map<std::string, MyVar> symbol_table;
 extern int test_val;
 
 class BaseAST;
@@ -31,11 +31,15 @@ class LAndExpr;
 class EqExpr;
 class RelExpr;
 class LValAST;
+class LeftLValAST;
 class DeclAST;
 class ConstDeclAST;
 class ConstDef;
 class ConstInitValAST;
 class ConstExprAST;
+class VarDeclAST;
+class VarDefAST;
+class InitValAST;
 
 // 所有 AST 的基类
 class BaseAST {
@@ -100,8 +104,13 @@ public:
 
 class StmtAST : public BaseAST{
 public:
+    enum Flag{
+        ASSIGN,
+        RETURN,
+    }flag;
     
     std::unique_ptr<BaseExprAST> expr;
+    std::unique_ptr<BaseExprAST> lval;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -110,13 +119,12 @@ public:
 class BaseExprAST : public BaseAST{
 public:
     int val;
+    std::string ident;
 
     BaseExprAST(){}
     BaseExprAST(int val) : val(val) {}
     BaseExprAST(const BaseExprAST& other) : val(other.val) {}
-    int getVal() const {
-        return val;
-    }
+    virtual int getVal() const = 0;
 };
 
 class ExprAST : public BaseExprAST{
@@ -126,6 +134,9 @@ public:
 
     void Dump() const override;
     std::string koopa_ir() const override;
+    int getVal() const override{
+        return lor_expr->getVal();
+    }
 };
 
 class UnaryExprAST : public BaseExprAST{
@@ -141,6 +152,17 @@ public:
 
     void Dump() const override;
     std::string koopa_ir() const override;
+    int getVal() const override{
+        if(flag==PRIMARY_EXPR)
+            return primary_expr->getVal();
+        else if(op=="+")
+            return unary_expr->getVal();
+        else if(op=="-")
+            return -unary_expr->getVal();
+        else if(op=="!")
+            return !unary_expr->getVal();
+        return 0;
+    }
 };
 
 class PrimaryExprAST : public BaseExprAST{
@@ -153,10 +175,19 @@ public:
 
     std::string number;
     std::unique_ptr<BaseExprAST> expr;
-    std::unique_ptr<BaseAST> lval;
+    std::unique_ptr<BaseExprAST> lval;
 
     void Dump() const override;
     std::string koopa_ir() const override;
+    int getVal() const override{
+        if(flag==NUMBER)
+            return val;
+        else if(flag==WITH_BRACKETS)
+            return expr->getVal();
+        else if(flag==LVAL){
+            return lval->val;}
+        return 0;
+    }
 };
 
 class AddExprAST : public BaseExprAST{
@@ -172,6 +203,17 @@ public:
 
     void Dump() const override;
     std::string koopa_ir() const override;
+    int getVal() const override{
+        if(flag==ONLY_MUL)
+            return mul_expr->getVal();
+        else if(flag==ADD_MUL){
+            if(op=="+")
+                return add_expr->getVal()+mul_expr->getVal();
+            else if(op=="-")
+                return add_expr->getVal()-mul_expr->getVal();
+        }
+        return 0;
+    }
 };
 
 class MulExprAST : public BaseExprAST{
@@ -187,6 +229,19 @@ public:
 
     void Dump() const override;
     std::string koopa_ir() const override;
+    int getVal() const override{
+        if(flag==ONLY_UNARY)
+            return unary_expr->getVal();
+        else if(flag==MUL_UNARY){
+            if(op=="*")
+                return mul_expr->getVal()*unary_expr->getVal();
+            else if(op=="/")
+                return mul_expr->getVal()/unary_expr->getVal();
+            else if(op=="%")
+                return mul_expr->getVal()%unary_expr->getVal();
+        }
+        return 0;
+    }
 };
 
 class LOrExprAST : public BaseExprAST{
@@ -202,7 +257,15 @@ public:
 
     void Dump() const override; 
     std::string koopa_ir() const override;
-
+    int getVal() const override{
+        if(flag==ONLY_LAND)
+            return land_expr->getVal();
+        else if(flag==LOR_LAND){
+            if(op=="||")
+                return lor_expr->getVal()||land_expr->getVal();
+        }
+        return 0;
+    }
 };
 
 class LAndExprAST : public BaseExprAST{
@@ -217,6 +280,15 @@ public:
 
     void Dump() const override;
     std::string koopa_ir() const override;
+    int getVal() const override{
+        if(flag==ONLY_EQ)
+            return eq_expr->getVal();
+        else if(flag==LAND_EQ){
+            if(op=="&&")
+                return land_expr->getVal()&&eq_expr->getVal();
+        }
+        return 0;
+    }
 };
 
 class EqExprAST : public BaseExprAST{
@@ -231,6 +303,17 @@ public:
 
     void Dump() const override;
     std::string koopa_ir() const override;
+    int getVal() const override{
+        if(flag==ONLY_REL)
+            return rel_expr->getVal();
+        else if(flag==EQ_REL){
+            if(op=="==")
+                return eq_expr->getVal()==rel_expr->getVal();
+            else if(op=="!=")
+                return eq_expr->getVal()!=rel_expr->getVal();
+        }
+        return 0;
+    }
 };
 
 class RelExprAST : public BaseExprAST{
@@ -245,6 +328,21 @@ public:
 
     void Dump() const override;
     std::string koopa_ir() const override;
+    int getVal() const override{
+        if(flag==ONLY_ADD)
+            return add_expr->getVal();
+        else if(flag==REL_ADD){
+            if(op=="<")
+                return rel_expr->getVal()<add_expr->getVal();
+            else if(op=="<=")
+                return rel_expr->getVal()<=add_expr->getVal();
+            else if(op==">")
+                return rel_expr->getVal()>add_expr->getVal();
+            else if(op==">=")
+                return rel_expr->getVal()>=add_expr->getVal();
+        }
+        return 0;
+    }
 };
 
 class LValAST : public BaseExprAST{
@@ -253,11 +351,30 @@ public:
 
     void Dump() const override;
     std::string koopa_ir() const override;
+    int getVal() const override{
+        return symbol_table[ident].val;
+    }
+};
+
+class LeftLValAST: public BaseExprAST{
+public:
+    std::string ident;
+
+    void Dump() const override;
+    std::string koopa_ir() const override;
+    int getVal() const override{
+        return symbol_table[ident].val;
+    }
 };
 
 class DeclAST : public BaseAST{
 public:
+    enum Flag{
+        CONST_DECL=0, // ConstDecl
+        VAR_DECL, // VarDecl
+    }flag;
     std::unique_ptr<BaseAST> const_decl;
+    std::unique_ptr<BaseAST> var_decl;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -276,7 +393,7 @@ public:
 class ConstDefAST : public BaseAST{
 public:
     std::string ident;
-    std::unique_ptr<BaseAST> const_init_val;
+    std::unique_ptr<BaseExprAST> const_init_val;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -288,6 +405,9 @@ public:
 
     void Dump() const override;
     std::string koopa_ir() const override;
+    int getVal() const override{
+        return const_expr->getVal();
+    }
 };
 
 class ConstExprAST : public BaseExprAST{
@@ -296,4 +416,37 @@ public:
 
     void Dump() const override;
     std::string koopa_ir() const override;
+    int getVal() const override{
+        return expr->getVal();
+    }
 };
+
+class VarDeclAST : public BaseAST{
+public:
+    std::string btype;
+    std::vector<std::unique_ptr<BaseAST>> var_def_list;
+
+    void Dump() const override;
+    std::string koopa_ir() const override;
+};
+
+class VarDefAST : public BaseAST{
+public:
+    std::string ident;
+    std::unique_ptr<BaseExprAST> var_init_val;
+
+    void Dump() const override;
+    std::string koopa_ir() const override;
+};
+
+class VarInitValAST : public BaseExprAST{
+public:
+    std::unique_ptr<BaseExprAST> expr;
+
+    void Dump() const override;
+    std::string koopa_ir() const override;
+    int getVal() const override{
+        return expr->getVal();
+    }
+};
+
