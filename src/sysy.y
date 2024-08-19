@@ -16,8 +16,6 @@
 int yylex();
 void yyerror(std::unique_ptr<BaseAST> &ast, const char *s);
 
-extern std::unordered_map<std::string, MyVar> symbol_table;
-
 using namespace std;
 
 %}
@@ -122,6 +120,28 @@ Stmt
     stmt->flag = StmtAST::ASSIGN;
     stmt->lval = unique_ptr<BaseExprAST>($1);
     stmt->expr = unique_ptr<BaseExprAST>($3);
+    $$ = stmt;
+  }
+  | Block {
+    auto stmt = new StmtAST();
+    stmt->flag = StmtAST::BLOCK;
+    stmt->block = unique_ptr<BaseAST>($1);
+    $$ = stmt;
+  }
+  | ';'{
+    auto stmt = new StmtAST();
+    stmt->flag = StmtAST::EMPTY;
+    $$ = stmt;
+  }
+  | Expr ';' {
+    auto stmt = new StmtAST();
+    stmt->flag = StmtAST::EXPR;
+    stmt->expr = unique_ptr<BaseExprAST>($1);
+    $$ = stmt;
+  }
+  | RETURN ';'{
+    auto stmt = new StmtAST();
+    stmt->flag = StmtAST::RETURN_VOID;
     $$ = stmt;
   }
   ;
@@ -383,7 +403,6 @@ LVal
   : IDENT {
     auto lval = new LValAST();
     lval->ident = *unique_ptr<string>($1);
-    lval->val = symbol_table[lval->ident].val;
     $$ = lval;
   }
   ;
@@ -437,7 +456,6 @@ ConstDef
     auto const_def = new ConstDefAST();
     const_def->ident = *unique_ptr<string>($1);
     const_def->const_init_val = unique_ptr<BaseExprAST>($3);
-    symbol_table[const_def->ident] = MyVar("int", $3->val, true);
     $$ = const_def;
   }
   ;
@@ -487,14 +505,14 @@ VarDef
   : IDENT {
     auto var_def = new VarDefAST();
     var_def->ident = *unique_ptr<string>($1);
-    symbol_table[var_def->ident] = MyVar("int", 0, false,true);
+    var_def->is_init = false;
     $$ = var_def;
   }
   | IDENT '=' VarInitVal {
     auto var_def = new VarDefAST();
     var_def->ident = *unique_ptr<string>($1);
     var_def->var_init_val = unique_ptr<BaseExprAST>($3);
-    symbol_table[var_def->ident] = MyVar("int", $3->val, false);
+    var_def->is_init = true;
     $$ = var_def;
   }
   ;

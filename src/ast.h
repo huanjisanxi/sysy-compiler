@@ -10,7 +10,8 @@
 #include <set>
 
 extern std::string str;
-extern std::unordered_map<std::string, MyVar> symbol_table;
+extern std::vector<std::unordered_map<std::string, MyVar>> symbol_tables;
+extern int block_num;
 extern int test_val;
 
 class BaseAST;
@@ -40,6 +41,8 @@ class ConstExprAST;
 class VarDeclAST;
 class VarDefAST;
 class InitValAST;
+
+int ident_floor(std::string ident);
 
 // 所有 AST 的基类
 class BaseAST {
@@ -107,10 +110,15 @@ public:
     enum Flag{
         ASSIGN,
         RETURN,
+        BLOCK,
+        EMPTY,
+        EXPR,
+        RETURN_VOID
     }flag;
     
     std::unique_ptr<BaseExprAST> expr;
     std::unique_ptr<BaseExprAST> lval;
+    std::unique_ptr<BaseAST> block; 
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -185,7 +193,7 @@ public:
         else if(flag==WITH_BRACKETS)
             return expr->getVal();
         else if(flag==LVAL){
-            return lval->val;}
+            return lval->getVal();}
         return 0;
     }
 };
@@ -352,7 +360,7 @@ public:
     void Dump() const override;
     std::string koopa_ir() const override;
     int getVal() const override{
-        return symbol_table[ident].val;
+        return symbol_tables[ident_floor(ident)][ident].val;
     }
 };
 
@@ -363,7 +371,7 @@ public:
     void Dump() const override;
     std::string koopa_ir() const override;
     int getVal() const override{
-        return symbol_table[ident].val;
+        return symbol_tables[ident_floor(ident)][ident].val;
     }
 };
 
@@ -434,6 +442,7 @@ class VarDefAST : public BaseAST{
 public:
     std::string ident;
     std::unique_ptr<BaseExprAST> var_init_val;
+    bool is_init;
 
     void Dump() const override;
     std::string koopa_ir() const override;

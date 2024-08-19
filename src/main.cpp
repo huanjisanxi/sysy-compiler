@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <set>
 #include "my_var.h"
+#include <stack>
 
 
 using namespace std;
@@ -23,7 +24,10 @@ extern int yyparse(unique_ptr<BaseAST> &ast);
 std::string str;
 
 
-std::unordered_map<string, MyVar> symbol_table;
+std::unordered_map<string, MyVar> base_symbol_table;
+std::vector<std::unordered_map<string, MyVar>> symbol_tables(1, base_symbol_table);
+int block_num=0;
+// std::unordered_map<string, MyVar> symbol_table;
 std::set<string> const_symbol;
 int test_val ;
 
@@ -44,11 +48,6 @@ int main(int argc, const char *argv[]) {
   auto ret = yyparse(ast);
   assert(!ret);
 
-  std::cout<<"test_val = "<<test_val<<std::endl;
-  cout<<"symbol_table size = "<<symbol_table.size()<<endl;
-  for(auto it = symbol_table.begin(); it!= symbol_table.end(); it++){
-    cout<<it->first<<" : "<<it->second.val<<"  "<<it->second.type<<"  "<<it->second.is_const<<endl;
-  }
 
   if(strcmp(mode, "-ast") == 0){
     ast->Dump();
@@ -57,6 +56,11 @@ int main(int argc, const char *argv[]) {
   else if(strcmp(mode, "-test") == 0){
     ast->koopa_ir();
     std::cout<<str<<std::endl;
+    std::cout<<"test_val = "<<test_val<<std::endl;
+    cout<<"symbol_table size = "<<symbol_tables[0].size()<<endl;
+    for(auto it = symbol_tables[0].begin(); it!= symbol_tables[0].end(); it++){
+      cout<<it->first<<" : "<<it->second.val<<"  "<<it->second.type<<"  "<<it->second.is_const<<endl;
+    }
     fclose(stdout);
   }
   else if(strcmp(mode, "-koopa") == 0){
