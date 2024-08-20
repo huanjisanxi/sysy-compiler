@@ -144,6 +144,23 @@ Stmt
     stmt->flag = StmtAST::RETURN_VOID;
     $$ = stmt;
   }
+  | IF '(' Expr ')' Stmt {
+    auto stmt = new StmtAST();
+    stmt->flag = StmtAST::IF;
+    stmt->if_stmt = new IfStmtAST();
+    stmt->if_stmt->cond = unique_ptr<BaseExprAST>($3);
+    stmt->if_stmt->if_stmt = unique_ptr<BaseAST>($5);
+    $$ = stmt;
+  }
+  | IF '(' Expr ')' Stmt ELSE Stmt {
+    auto stmt = new StmtAST();
+    stmt->flag = StmtAST::IF_ELSE;
+    stmt->if_stmt = new IfStmtAST();
+    stmt->if_stmt->cond = unique_ptr<BaseExprAST>($3);
+    stmt->if_stmt->if_stmt = unique_ptr<BaseAST>($5);
+    stmt->if_stmt->else_stmt = unique_ptr<BaseAST>($7);
+    $$ = stmt;
+  }
   ;
 
 LeftLVal

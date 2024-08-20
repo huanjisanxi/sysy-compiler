@@ -113,12 +113,17 @@ public:
         BLOCK,
         EMPTY,
         EXPR,
-        RETURN_VOID
+        RETURN_VOID,
+        IF,
+        IF_ELSE,
     }flag;
     
     std::unique_ptr<BaseExprAST> expr;
     std::unique_ptr<BaseExprAST> lval;
     std::unique_ptr<BaseAST> block; 
+    std::unique_ptr<BaseExprAST> if_expr;
+    std::unique_ptr<BaseAST> if_stmt;
+    std::unique_ptr<BaseExprAST> else_stmt;
 
     void Dump() const override;
     std::string koopa_ir() const override;
