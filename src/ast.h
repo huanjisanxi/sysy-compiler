@@ -13,6 +13,11 @@ extern std::string str;
 extern std::vector<std::unordered_map<std::string, MyVar>> symbol_tables;
 extern int block_num;
 extern int test_val;
+static int cnt=0;
+static int if_cnt=0;
+static int ident_cnt=0;
+extern std::unordered_map<std::string, bool> block_end;
+extern std::string now_block;
 
 class BaseAST;
 class CompUnitAST;
@@ -121,9 +126,9 @@ public:
     std::unique_ptr<BaseExprAST> expr;
     std::unique_ptr<BaseExprAST> lval;
     std::unique_ptr<BaseAST> block; 
-    std::unique_ptr<BaseExprAST> if_expr;
+    std::unique_ptr<BaseExprAST> cond;
     std::unique_ptr<BaseAST> if_stmt;
-    std::unique_ptr<BaseExprAST> else_stmt;
+    std::unique_ptr<BaseAST> else_stmt;
 
     void Dump() const override;
     std::string koopa_ir() const override;

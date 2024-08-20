@@ -1,11 +1,12 @@
 #include "ast.h"
 
-static int cnt=0;
+
 
 // for Dump
 
 void show_table();
 int ident_floor(std::string ident);
+int ident_id(std::string ident);
 
 void CompUnitAST::Dump() const  {
     std::cout << "CompUnitAST { ";
@@ -191,7 +192,10 @@ std::string FuncDefAST::koopa_ir() const {
     str += "fun @"+ident+"(): ";
     func_type->koopa_ir();
     str += " {\n";
-    str += "%entry:\n";
+    std::string block_name = "%entry";
+    str += block_name+":\n";
+    now_block = block_name;
+    block_end[now_block] = false;
     block->koopa_ir();
     str += "}\n";
     return "";
@@ -224,16 +228,20 @@ std::string BlockItemAST::koopa_ir() const {
 }
 
 std::string StmtAST::koopa_ir() const {
+    if(block_end[now_block])
+        return "";
+    std::string ret="";
     if(flag == RETURN){
         auto res = expr->koopa_ir();
         str += "\tret " + res + "\n";
+        block_end[now_block] = true;
     }
     else if (flag == ASSIGN){
         std::string ident = lval->koopa_ir();
-        std::string layer = std::to_string(ident_floor(ident));
+        std::string id = std::to_string(ident_id(ident));
         std::string val = expr->koopa_ir();
         symbol_tables[ident_floor(ident)][ident].val = expr->getVal();
-        str += "\tstore " + val + ", @" + ident + "_" + layer + "\n";
+        str += "\tstore " + val + ", @" + ident + "_" + id + "\n";
     }
     else if(flag == BLOCK){
         std::unordered_map<std::string, MyVar> next_table;
@@ -241,15 +249,69 @@ std::string StmtAST::koopa_ir() const {
         block_num++;
         block->koopa_ir();
         symbol_tables.pop_back();
-        block_num--; 
+        block_num--;
     }
     else if(flag==EXPR){
         expr->koopa_ir();
     }
     else if(flag==RETURN_VOID){
         str += "\tret\n";
+        block_end[now_block] = true;
     }
-    return "";
+    else if(flag==IF){
+        std::string val = cond->koopa_ir();
+        std::string now_if = std::to_string(if_cnt);
+        if_cnt ++;
+        std::string then_block_name = "%then_"+now_if;
+        std::string end_block_name = "%end_"+now_if;
+        str += "\tbr " + val + ", " + then_block_name +", "+ end_block_name+"\n";
+        block_end[now_block] = true;
+        str += "\n";
+        str += then_block_name+":\n";
+        now_block = then_block_name;
+        block_end[then_block_name] = false;
+        if_stmt->koopa_ir();
+        if(!block_end[now_block]){
+            str += "\tjump %end_"+now_if+"\n";
+            block_end[now_block] = true;
+        }
+        str += "\n";
+        now_block = end_block_name;
+        block_end[end_block_name] = false;
+        str += end_block_name+":\n";
+    }
+    else if(flag==IF_ELSE){
+        std::string val = cond->koopa_ir();
+        std::string now_if= std::to_string(if_cnt);
+        if_cnt++;
+        std::string then_block_name = "%then_"+now_if;
+        std::string else_block_name = "%else_"+now_if;
+        std::string end_block_name = "%end_"+now_if;
+        str += "\tbr " + val + ", "+then_block_name+", "+else_block_name+"\n";
+        str += "\n";
+        str += then_block_name+":\n";
+        now_block=then_block_name;
+        block_end[then_block_name] = false;
+        if_stmt->koopa_ir();
+        if(!block_end[now_block]){
+            str += "\tjump %end_"+now_if+"\n";
+            block_end[now_block] = true;
+        }
+        str += "\n";
+        str += else_block_name+":\n";
+        now_block = else_block_name;
+        block_end[else_block_name] = false;
+        else_stmt->koopa_ir();
+        if(!block_end[now_block]){
+            str += "\tjump %end_"+now_if+"\n";
+            block_end[now_block] = true;
+        }
+        str += "\n";
+        now_block = end_block_name;
+        block_end[end_block_name] = false;
+        str += "%end_"+now_if+":\n";
+    }
+    return ret;
 }
 
 std::string ExprAST::koopa_ir() const {
@@ -439,7 +501,7 @@ std::string LValAST::koopa_ir() const {
     }
     else{
         std::string ret = "%" + std::to_string(cnt++);
-        str += "\t" + ret + " = load @" + ident + "_" + std::to_string(ident_floor(ident)) + "\n"; 
+        str += "\t" + ret + " = load @" + ident + "_" + std::to_string(ident_id(ident)) + "\n"; 
         return ret;
     }
 }
@@ -449,6 +511,9 @@ std::string LeftLValAST::koopa_ir() const {
 }
 
 std::string DeclAST::koopa_ir() const {
+    if(block_end[now_block]){
+        return "";
+    }
     if(flag==CONST_DECL){
         const_decl->koopa_ir();
     }
@@ -466,7 +531,7 @@ std::string ConstDeclAST::koopa_ir() const {
 }
 
 std::string ConstDefAST::koopa_ir() const {
-    symbol_tables[block_num][ident] = MyVar("int", const_init_val->getVal() , true);
+    symbol_tables[block_num][ident] = MyVar("int", const_init_val->getVal(), true, ident_cnt++);
     return "";
 }
 
@@ -489,16 +554,16 @@ std::string VarDeclAST::koopa_ir() const {
 std::string VarDefAST::koopa_ir() const {
     if(is_init){
         int val = var_init_val->getVal();
-        symbol_tables[block_num][ident] = MyVar("int", val, false); 
+        symbol_tables[block_num][ident] = MyVar("int", val, false, ident_cnt++); 
     }
     else{
-        symbol_tables[block_num][ident] = MyVar("int", 0, false, true);
+        symbol_tables[block_num][ident] = MyVar("int", 0, false, ident_cnt++, true);
     }
 
     std::string type = "i32";
-    str += "\t@" + ident + "_" + std::to_string(ident_floor(ident)) + " = alloc " + type + '\n';
+    str += "\t@" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc " + type + '\n';
     if(is_init){
-        str += "\tstore " + var_init_val->koopa_ir() + ", @" + ident + "_" + std::to_string(ident_floor(ident)) + "\n";
+        str += "\tstore " + var_init_val->koopa_ir() + ", @" + ident + "_" + std::to_string(ident_id(ident)) + "\n";
     }
     return "";
 }
@@ -515,6 +580,15 @@ int ident_floor(std::string ident){
         }
     }
     return block_num;
+}
+
+int ident_id(std::string ident){
+    for(int i = block_num; i>=0; i--){
+        if(symbol_tables[i].find(ident)!=symbol_tables[i].end()){
+            return symbol_tables[i][ident].id;
+        }
+    }
+    return -1;
 }
 
 void show_table(){

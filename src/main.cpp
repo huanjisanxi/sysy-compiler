@@ -26,6 +26,8 @@ std::string str;
 
 std::unordered_map<string, MyVar> base_symbol_table;
 std::vector<std::unordered_map<string, MyVar>> symbol_tables(1, base_symbol_table);
+std::unordered_map<string, bool> block_end;
+std::string now_block;
 int block_num=0;
 // std::unordered_map<string, MyVar> symbol_table;
 std::set<string> const_symbol;
