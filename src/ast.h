@@ -14,7 +14,7 @@ extern std::vector<std::unordered_map<std::string, MyVar>> symbol_tables;
 extern int block_num;
 extern int test_val;
 static int cnt=0;
-static int if_cnt=0;
+static int block_cnt=0;
 static int ident_cnt=0;
 extern std::unordered_map<std::string, bool> block_end;
 extern std::string now_block;
@@ -121,6 +121,7 @@ public:
         RETURN_VOID,
         IF,
         IF_ELSE,
+        WHILE
     }flag;
     
     std::unique_ptr<BaseExprAST> expr;
@@ -129,6 +130,7 @@ public:
     std::unique_ptr<BaseExprAST> cond;
     std::unique_ptr<BaseAST> if_stmt;
     std::unique_ptr<BaseAST> else_stmt;
+    std::unique_ptr<BaseAST> while_stmt;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -279,8 +281,12 @@ public:
         if(flag==ONLY_LAND)
             return land_expr->getVal();
         else if(flag==LOR_LAND){
-            if(op=="||")
+            if(op=="||"){
+                if(lor_expr->getVal()){
+                    return true;
+                }
                 return lor_expr->getVal()||land_expr->getVal();
+            }
         }
         return 0;
     }
@@ -302,8 +308,12 @@ public:
         if(flag==ONLY_EQ)
             return eq_expr->getVal();
         else if(flag==LAND_EQ){
-            if(op=="&&")
+            if(op=="&&"){
+                if(!land_expr->getVal()){
+                    return false;
+                }
                 return land_expr->getVal()&&eq_expr->getVal();
+            }
         }
         return 0;
     }

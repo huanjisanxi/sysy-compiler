@@ -160,6 +160,13 @@ Stmt
     stmt->else_stmt = unique_ptr<BaseAST>($7);
     $$ = stmt;
   }
+  | WHILE '(' Expr ')' Stmt {
+    auto stmt = new StmtAST();
+    stmt->flag = StmtAST::WHILE;
+    stmt->cond = unique_ptr<BaseExprAST>($3);
+    stmt->while_stmt = unique_ptr<BaseAST>($5);
+    $$ = stmt;
+  }
   ;
 
 LeftLVal

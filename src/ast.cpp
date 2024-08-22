@@ -260,8 +260,8 @@ std::string StmtAST::koopa_ir() const {
     }
     else if(flag==IF){
         std::string val = cond->koopa_ir();
-        std::string now_if = std::to_string(if_cnt);
-        if_cnt ++;
+        std::string now_if = std::to_string(block_cnt);
+        block_cnt ++;
         std::string then_block_name = "%then_"+now_if;
         std::string end_block_name = "%end_"+now_if;
         str += "\tbr " + val + ", " + then_block_name +", "+ end_block_name+"\n";
@@ -282,8 +282,8 @@ std::string StmtAST::koopa_ir() const {
     }
     else if(flag==IF_ELSE){
         std::string val = cond->koopa_ir();
-        std::string now_if= std::to_string(if_cnt);
-        if_cnt++;
+        std::string now_if= std::to_string(block_cnt);
+        block_cnt++;
         std::string then_block_name = "%then_"+now_if;
         std::string else_block_name = "%else_"+now_if;
         std::string end_block_name = "%end_"+now_if;
@@ -310,6 +310,31 @@ std::string StmtAST::koopa_ir() const {
         now_block = end_block_name;
         block_end[end_block_name] = false;
         str += "%end_"+now_if+":\n";
+    }
+    else if(flag==WHILE){
+        std::string now_while = std::to_string(block_cnt);
+        block_cnt++;
+        std::string entry_name = "%while_entry_"+now_while;
+        std::string body_name = "%while_body_"+now_while;
+        std::string end_name = "%while_end_"+now_while;
+        str += "\tjump "+entry_name+"\n";
+        str += "\n";
+        str += entry_name+":\n";
+        std::string val = cond->koopa_ir();
+        str += "\tbr " + val + ", " + body_name + ", " + end_name + "\n";
+        str += "\n";
+        str += body_name+":\n";
+        now_block = body_name;
+        block_end[body_name] = false;
+        while_stmt->koopa_ir();
+        if(!block_end[now_block]){
+            str += "\tjump "+entry_name+"\n";
+            block_end[now_block] = true;
+        }
+        str += "\n";
+        now_block = end_name;
+        block_end[end_name] = false;
+        str += end_name+":\n";
     }
     return ret;
 }
