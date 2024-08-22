@@ -18,6 +18,7 @@ static int block_cnt=0;
 static int ident_cnt=0;
 extern std::unordered_map<std::string, bool> block_end;
 extern std::string now_block;
+extern std::string now_while_num;
 
 class BaseAST;
 class CompUnitAST;
@@ -121,7 +122,9 @@ public:
         RETURN_VOID,
         IF,
         IF_ELSE,
-        WHILE
+        WHILE,
+        BREAK,
+        CONTINUE,
     }flag;
     
     std::unique_ptr<BaseExprAST> expr;

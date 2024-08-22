@@ -167,6 +167,16 @@ Stmt
     stmt->while_stmt = unique_ptr<BaseAST>($5);
     $$ = stmt;
   }
+  | BREAK ';'{
+    auto stmt = new StmtAST();
+    stmt->flag = StmtAST::BREAK;
+    $$ = stmt;
+  }
+  | CONTINUE ';'{
+    auto stmt = new StmtAST();
+    stmt->flag = StmtAST::CONTINUE;
+    $$ = stmt;
+  }
   ;
 
 LeftLVal

@@ -313,6 +313,7 @@ std::string StmtAST::koopa_ir() const {
     }
     else if(flag==WHILE){
         std::string now_while = std::to_string(block_cnt);
+        now_while_num = now_while;
         block_cnt++;
         std::string entry_name = "%while_entry_"+now_while;
         std::string body_name = "%while_body_"+now_while;
@@ -321,12 +322,14 @@ std::string StmtAST::koopa_ir() const {
         str += "\n";
         str += entry_name+":\n";
         std::string val = cond->koopa_ir();
+        now_while_num = now_while;
         str += "\tbr " + val + ", " + body_name + ", " + end_name + "\n";
         str += "\n";
         str += body_name+":\n";
         now_block = body_name;
         block_end[body_name] = false;
         while_stmt->koopa_ir();
+        now_while_num = now_while;
         if(!block_end[now_block]){
             str += "\tjump "+entry_name+"\n";
             block_end[now_block] = true;
@@ -335,6 +338,14 @@ std::string StmtAST::koopa_ir() const {
         now_block = end_name;
         block_end[end_name] = false;
         str += end_name+":\n";
+    }
+    else if(flag==BREAK){
+        str += "\tjump %while_end_" + now_while_num + "\n";
+        block_end[now_block] = true;
+    }
+    else if(flag==CONTINUE){
+        str += "\tjump %while_entry_" + now_while_num + "\n";
+        block_end[now_block] = true;
     }
     return ret;
 }
