@@ -28,8 +28,8 @@ std::unordered_map<string, MyVar> base_symbol_table;
 std::vector<std::unordered_map<string, MyVar>> symbol_tables(1, base_symbol_table);
 std::unordered_map<string, bool> block_end;
 std::string now_block;
-std::string now_while_num;
 int block_num=0;
+std::vector<std::string> nested_while_stack;
 // std::unordered_map<string, MyVar> symbol_table;
 std::set<string> const_symbol;
 int test_val ;
@@ -71,6 +71,7 @@ int main(int argc, const char *argv[]) {
     ast->koopa_ir();
     std::cout<<str<<std::endl;
     fclose(stdout);
+    // std::cout<<"fun @main(): i32 {\n%entry:\n\tjump %while_entry_0\n%while_entry_0:\n\tbr 1, %while_body_0, %while_end_0\n%while_body_0:\n\tjump %while_entry_0\n%while_end_0:\n\tret 0\n}\n";
   }
   else if(strcmp(mode, "-riscv") == 0){
     freopen(output, "w", stdout);

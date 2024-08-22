@@ -18,7 +18,7 @@ static int block_cnt=0;
 static int ident_cnt=0;
 extern std::unordered_map<std::string, bool> block_end;
 extern std::string now_block;
-extern std::string now_while_num;
+extern std::vector<std::string> nested_while_stack;
 
 class BaseAST;
 class CompUnitAST;
