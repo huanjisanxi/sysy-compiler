@@ -30,6 +30,9 @@ std::unordered_map<string, bool> block_end;
 std::string now_block;
 int block_num=0;
 std::vector<std::string> nested_while_stack;
+std::unordered_map<string, bool> has_ret;
+std::string now_func;
+std::unordered_map<string,bool> func_ret;
 // std::unordered_map<string, MyVar> symbol_table;
 std::set<string> const_symbol;
 int test_val ;
@@ -68,6 +71,7 @@ int main(int argc, const char *argv[]) {
   }
   else if(strcmp(mode, "-koopa") == 0){
     freopen(output, "w", stdout);
+    // std::cout<<"???";
     ast->koopa_ir();
     std::cout<<str<<std::endl;
     fclose(stdout);

@@ -10,7 +10,7 @@ int ident_id(std::string ident);
 
 void CompUnitAST::Dump() const  {
     std::cout << "CompUnitAST { ";
-    func_def->Dump();
+    // func_def->Dump();
     std::cout << " }";
 }
 
@@ -20,6 +20,10 @@ void FuncDefAST::Dump() const  {
     std::cout << ", " << ident << ", ";
     block->Dump();
     std::cout << " }";
+}
+
+void FuncParamAST::Dump() const {
+
 }
 
 void FuncTypeAST::Dump() const  {
@@ -72,8 +76,14 @@ void UnaryExprAST::Dump() const {
             std::cout << " " << op << " ";
             unary_expr->Dump();
             break;
+        case CALL:
+            break;
     }
     std::cout << " }";
+}
+
+void CallParamAST::Dump() const{
+
 }
 
 void PrimaryExprAST::Dump() const {
@@ -184,28 +194,79 @@ void VarInitValAST::Dump() const {
 // for koopa_ir
 
 std::string CompUnitAST::koopa_ir() const {
-    func_def->koopa_ir();
+    str+="decl @getint(): i32\ndecl @getch(): i32\ndecl @getarray(*i32): i32\ndecl @putint(i32)\ndecl @putch(i32)\ndecl @putarray(i32, *i32)\ndecl @starttime()\ndecl @stoptime()\n\n";
+    func_ret["getint"]=true;
+    func_ret["getch"]=true;
+    func_ret["getarray"]=true;
+    for(auto& item : func_def_list){
+        std::unordered_map<std::string, MyVar> next_table;
+        symbol_tables.push_back(next_table);
+        block_num++;
+        item->koopa_ir();
+        str+="\n";
+        symbol_tables.pop_back();
+        block_num--;
+    }
     return "";
 }
 
 std::string FuncDefAST::koopa_ir() const {
-    str += "fun @"+ident+"(): ";
-    func_type->koopa_ir();
+    now_func=ident;
+    str += "fun @"+ident+"(";
+    std::vector<std::string> ident_list;
+    if(func_param_list.size()!= 0){
+        for(int i=0;i<func_param_list.size();++i){
+            std::string t = func_param_list[i]->koopa_ir();
+            ident_list.push_back(t);
+            if(i!=func_param_list.size()-1)
+                str += ", ";
+            
+        }
+    }
+    str += ")";
+    std::string ttype=func_type->koopa_ir();
+    if(ttype=="int"){
+        func_ret[ident] = true;
+    }
     str += " {\n";
     std::string block_name = "%entry";
     str += block_name+":\n";
+    for(auto ident : ident_list){
+        symbol_tables[block_num][ident] = MyVar("int", 0, false, ident_cnt++, true);
+        str+="\t%"+ident+"_"+std::to_string(ident_id(ident))+" = alloc i32\n";
+        str+="\tstore @"+ident+", %"+ident+"_"+std::to_string(ident_id(ident))+"\n";
+    }
     now_block = block_name;
     block_end[now_block] = false;
     block->koopa_ir();
+    if(!has_ret[ident]){
+        str += "\tret ";
+        if(ttype=="int"){
+            str+="0\n";
+        }
+        else{
+            str+="\n";
+        }
+    }
     str += "}\n";
     return "";
 }
 
+std::string FuncParamAST::koopa_ir() const{
+    str+="@"+ident;
+    if(btype=="int")
+        str += ": i32";
+    else if(btype=="void")
+        ;
+    return ident;
+}
+
 std::string FuncTypeAST::koopa_ir() const {
     if(type == "int"){
-        str += "i32";
+        str += ": i32";
+        return "int";
     } 
-    return "";
+    return "void";
 }
 
 std::string BlockAST::koopa_ir() const {
@@ -235,13 +296,14 @@ std::string StmtAST::koopa_ir() const {
         auto res = expr->koopa_ir();
         str += "\tret " + res + "\n";
         block_end[now_block] = true;
+        has_ret[now_func]=true;
     }
     else if (flag == ASSIGN){
         std::string ident = lval->koopa_ir();
         std::string id = std::to_string(ident_id(ident));
         std::string val = expr->koopa_ir();
         symbol_tables[ident_floor(ident)][ident].val = expr->getVal();
-        str += "\tstore " + val + ", @" + ident + "_" + id + "\n";
+        str += "\tstore " + val + ", %" + ident + "_" + id + "\n";
     }
     else if(flag == BLOCK){
         std::unordered_map<std::string, MyVar> next_table;
@@ -257,6 +319,7 @@ std::string StmtAST::koopa_ir() const {
     else if(flag==RETURN_VOID){
         str += "\tret\n";
         block_end[now_block] = true;
+        has_ret[now_func]=true;
     }
     else if(flag==IF){
         std::string val = cond->koopa_ir();
@@ -356,17 +419,33 @@ std::string ExprAST::koopa_ir() const {
 
 std::string UnaryExprAST::koopa_ir() const {
     std::string ret;
+    std::vector<std::string> tmp;
     switch(flag){
         case PRIMARY_EXPR:
             ret = primary_expr->koopa_ir();  
             break;
+        case CALL:
+            ret = "%"+std::to_string(cnt++);
+            for(auto& param : call_expr_list){
+                tmp.push_back(param->koopa_ir());
+            }
+            str+="\t";
+            if(func_ret[call_ident])
+                str+=ret+" = ";
+            str += "call @"+call_ident+"(";
+            for(int i=0;i<tmp.size();++i){
+                str+=tmp[i];
+                if(i!=tmp.size()-1)
+                    str+=", ";
+            }
+            str += ")\n";
+            break;  
         case OP_UNARY:
             auto res = unary_expr->koopa_ir();
             if(op == "+"){
                 ret = res;
                 break;
             }
-
             ret = "%"+std::to_string(cnt++);
             if(op == "-"){
                 str += "\t" + ret + " = sub 0, " + res + "\n";  
@@ -374,9 +453,13 @@ std::string UnaryExprAST::koopa_ir() const {
             else if(op == "!"){
                 str += "\t" + ret + " = eq 0, " + res + "\n";  
             }
-            break;
+            break; 
     }
     return ret;
+}
+
+std::string CallParamAST::koopa_ir() const{
+    return expr->koopa_ir();
 }
 
 std::string PrimaryExprAST::koopa_ir() const {
@@ -536,7 +619,7 @@ std::string LValAST::koopa_ir() const {
     }
     else{
         std::string ret = "%" + std::to_string(cnt++);
-        str += "\t" + ret + " = load @" + ident + "_" + std::to_string(ident_id(ident)) + "\n"; 
+        str += "\t" + ret + " = load %" + ident + "_" + std::to_string(ident_id(ident)) + "\n"; 
         return ret;
     }
 }
@@ -596,9 +679,9 @@ std::string VarDefAST::koopa_ir() const {
     }
 
     std::string type = "i32";
-    str += "\t@" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc " + type + '\n';
+    str += "\t%" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc " + type + '\n';
     if(is_init){
-        str += "\tstore " + var_init_val->koopa_ir() + ", @" + ident + "_" + std::to_string(ident_id(ident)) + "\n";
+        str += "\tstore " + var_init_val->koopa_ir() + ", %" + ident + "_" + std::to_string(ident_id(ident)) + "\n";
     }
     return "";
 }

@@ -19,11 +19,15 @@ static int ident_cnt=0;
 extern std::unordered_map<std::string, bool> block_end;
 extern std::string now_block;
 extern std::vector<std::string> nested_while_stack;
+extern std::unordered_map<std::string, bool> has_ret;
+extern std::unordered_map<std::string, bool> func_ret;
+extern std::string now_func;
 
 class BaseAST;
 class CompUnitAST;
-class FuncDef;
+class FuncDefAST;
 class FuncTypeAST;
+class FuncParamAST;
 class BlockAST;
 class BlockItemAST;
 class StmtAST;
@@ -63,7 +67,8 @@ public:
 class CompUnitAST : public BaseAST {
 public:
     // 用智能指针管理对象
-    std::unique_ptr<BaseAST> func_def;
+    // std::unique_ptr<BaseAST> func_def;
+    std::vector<std::unique_ptr<BaseAST>> func_def_list;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -75,6 +80,16 @@ public:
     std::unique_ptr<BaseAST> func_type;
     std::string ident;
     std::unique_ptr<BaseAST> block;
+    std::vector<std::unique_ptr<BaseAST>> func_param_list;
+
+    void Dump() const override;
+    std::string koopa_ir() const override;
+};
+
+class FuncParamAST : public BaseAST{
+public:
+    std::string btype;
+    std::string ident;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -167,11 +182,14 @@ public:
     enum Flag{
         PRIMARY_EXPR=0, //PrimaryExp
         OP_UNARY,   //UnaryOp UnaryExp
+        CALL, // Call "(" [Exp {"," Exp}] ")"
     }flag;
 
     std::string op;
     std::unique_ptr<BaseExprAST> unary_expr;
     std::unique_ptr<BaseExprAST> primary_expr;
+    std::string call_ident;
+    std::vector<std::unique_ptr<BaseAST>> call_expr_list;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -186,6 +204,14 @@ public:
             return !unary_expr->getVal();
         return 0;
     }
+};
+
+class CallParamAST : public BaseAST{
+public:
+    std::unique_ptr<BaseExprAST> expr;
+
+    void Dump() const override;
+    std::string koopa_ir() const override;
 };
 
 class PrimaryExprAST : public BaseExprAST{

@@ -36,22 +36,44 @@ using namespace std;
 
 %type <ast_val> FuncDef FuncType Block Stmt BlockItem
 %type <expr_ast_val> Expr UnaryExpr PrimaryExpr AddExpr MulExpr LOrExpr LAndExpr EqExpr RelExpr ConstExpr ConstInitVal LVal LeftLVal 
-%type <ast_val> Decl ConstDecl ConstDef 
-%type <ast_val> VarDecl VarDef 
+%type <ast_val> Decl ConstDecl ConstDef CallParam
+%type <ast_val> VarDecl VarDef FuncParam 
 %type <expr_ast_val> VarInitVal 
 %type <str_val> BType
 %type <int_val> Number
-%type <vec_val> BlockItemList ConstDefList VarDefList
+%type <vec_val> BlockItemList ConstDefList VarDefList FuncDefList FuncParamList CallParamList
 
 %%
 
-CompUnit
+/* CompUnit
   : FuncDef {
     auto comp_unit = make_unique<CompUnitAST>();
     comp_unit->func_def = unique_ptr<BaseAST>($1);
     ast = move(comp_unit);
   }
+  ; */
+
+CompUnit
+  : FuncDefList {
+    auto comp_unit = make_unique<CompUnitAST>();
+    vector<unique_ptr<BaseAST>> *vec = ($1);
+    for (auto it = vec->begin(); it!= vec->end(); it++)
+      comp_unit->func_def_list.push_back(move(*it));
+    ast = move(comp_unit);
+  }
   ;
+
+FuncDefList
+  : FuncDef{
+    vector<unique_ptr<BaseAST>> *vec = new vector<unique_ptr<BaseAST>>;
+    vec->push_back(unique_ptr<BaseAST>($1));
+    $$ = vec;
+  }
+  | FuncDefList FuncDef{
+    vector<unique_ptr<BaseAST>> *vec = ($1);
+    vec->push_back(unique_ptr<BaseAST>($2));
+    $$ = vec;
+  }
 
 FuncDef
   :FuncType IDENT '(' ')' Block{
@@ -61,12 +83,47 @@ FuncDef
     func_def->block = unique_ptr<BaseAST>($5);
     $$ = func_def;
   }
+  |FuncType IDENT '(' FuncParamList ')' Block{
+    auto func_def = new FuncDefAST();
+    func_def->func_type = unique_ptr<BaseAST>($1);
+    func_def->ident = *unique_ptr<string>($2);
+    func_def->block = unique_ptr<BaseAST>($6);
+    vector<unique_ptr<BaseAST>> *vec = ($4);
+    for(auto it = vec->begin(); it!= vec->end(); it++)
+      func_def->func_param_list.push_back(move(*it));
+    $$ = func_def;
+  }
   ;
+
+FuncParamList
+  : FuncParam{
+    vector<unique_ptr<BaseAST>> *vec = new vector<unique_ptr<BaseAST>>;
+    vec->push_back(unique_ptr<BaseAST>($1));
+    $$ = vec;
+  }
+  | FuncParamList ',' FuncParam{
+    vector<unique_ptr<BaseAST>> *vec = ($1);
+    vec->push_back(unique_ptr<BaseAST>($3));
+    $$ = vec;
+  }
+
+FuncParam
+  : BType IDENT{
+    auto func_param = new FuncParamAST();
+    func_param->btype = "int";
+    func_param->ident = *unique_ptr<string>($2);
+    $$ = func_param;
+  }
 
 FuncType
   : INT{
     auto func_type = new FuncTypeAST();
     func_type->type = string("int");
+    $$ = func_type;
+  }
+  | VOID{
+    auto func_type = new FuncTypeAST();
+    func_type->type = string("void");
     $$ = func_type;
   }
   ;
@@ -229,7 +286,42 @@ UnaryExpr
     unary_expr->val =!$2->val;
     $$ = unary_expr;
   }
+  | IDENT '(' CallParamList ')' {
+    auto unary_expr = new UnaryExprAST();
+    unary_expr->flag=UnaryExprAST::CALL;
+    unary_expr->call_ident = *($1);
+    vector<unique_ptr<BaseAST>> *vec = ($3);
+    for(auto it = vec->begin(); it!= vec->end(); it++)
+      unary_expr->call_expr_list.push_back(move(*it));
+    $$ = unary_expr;
+  }
   ;
+
+CallParamList
+  : {
+    vector<unique_ptr<BaseAST>> *vec = new vector<unique_ptr<BaseAST>>;
+    $$ = vec;
+  }
+  | CallParam {
+    vector<unique_ptr<BaseAST>> *vec = new vector<unique_ptr<BaseAST>>;
+    vec->push_back(unique_ptr<BaseAST>($1));
+    $$ = vec;
+  }
+  | CallParamList ',' CallParam {
+    vector<unique_ptr<BaseAST>> *vec = ($1);
+    vec->push_back(unique_ptr<BaseAST>($3));
+    $$ = vec;
+  }
+  ;
+
+CallParam
+  : Expr {
+    auto call_param = new CallParamAST();
+    call_param->expr = unique_ptr<BaseExprAST>($1);
+    $$ = call_param;
+  }
+  ;
+
 
 PrimaryExpr
   : Number {
