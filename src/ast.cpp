@@ -531,16 +531,39 @@ std::string LOrExprAST::koopa_ir() const {
             ret = land_expr->koopa_ir();
             break;
         case LOR_LAND:
+            std::string now_if = std::to_string(block_cnt);
+            block_cnt++;
+
+            ret = "@result_" + now_if;
+            str += "\t" + ret + " = alloc i32\n";
+            str += "\tstore 1, " + ret + "\n"; 
+
             auto res1 = lor_expr->koopa_ir();
+            std::string then_block_name = "%then_"+now_if;
+            std::string end_block_name = "%end_"+now_if;
+            std::string cond = "%" + std::to_string(cnt++);
+            str += "\t" + cond + " = eq " + res1 + ", 0\n";
+            str += "\tbr " + cond + ", " + then_block_name + ", " + end_block_name + "\n";
+            str += "\n";
+            
+            str += then_block_name+":\n";
+            now_block = then_block_name;
+            block_end[then_block_name] = false;
             auto res2 = land_expr->koopa_ir();
+            std::string tmp = "%" + std::to_string(cnt++);
+            str += "\t" + tmp + " = ne " + res2 + ", 0\n";
+            str += "\tstore " + tmp + ", "+ ret + "\n";
+            str += "\tjump "+end_block_name+"\n";
+            block_end[now_block] = true;
+            str += "\n";
 
-            std::string temp1 = "%" + std::to_string(cnt++);
-            std::string temp2 = "%" + std::to_string(cnt++);
+            now_block = end_block_name;
+            block_end[end_block_name] = false;
+            str += end_block_name+":\n";
+            auto old_ret = ret;
             ret = "%" + std::to_string(cnt++);
-
-            str += "\t" + temp1 + " = ne " + res1 + ", 0\n";
-            str += "\t" + temp2 + " = ne " + res2 + ", 0\n";
-            str += "\t" + ret + " = or " + temp1 + ", " + temp2 + "\n";
+            str += "\t" + ret + " = load " + old_ret + "\n";
+            break;
     }
     return ret;
 }
@@ -552,16 +575,57 @@ std::string LAndExprAST::koopa_ir() const {
             ret = eq_expr->koopa_ir();
             break;
         case LAND_EQ:
+            // if(!land_expr->getVal()){
+            //     auto res1 = land_expr->koopa_ir();
+            //     std::string temp1 = "%" + std::to_string(cnt++);
+            //     ret = temp1;
+            //     str += "\t" + temp1 + " = ne " + res1 + ", 0\n";
+            // }
+            // else{
+            //     auto res1 = land_expr->koopa_ir();
+            //     std::string temp1 = "%" + std::to_string(cnt++);
+            //     str += "\t" + temp1 + " = ne " + res1 + ", 0\n";
+
+            //     auto res2 = eq_expr->koopa_ir();
+            //     std::string temp2 = "%" + std::to_string(cnt++);
+            //     str += "\t" + temp2 + " = ne " + res2 + ", 0\n";
+
+            //     ret = "%" + std::to_string(cnt++);
+            //     str += "\t" + ret + " = and " + temp1 + ", " + temp2 + "\n";
+            // }
+            std::string now_if = std::to_string(block_cnt);
+            block_cnt++;
+
+            ret = "@result_" + now_if;
+            str += "\t" + ret + " = alloc i32\n";
+            str += "\tstore 0, " + ret + "\n"; 
+
             auto res1 = land_expr->koopa_ir();
+            std::string then_block_name = "%then_"+now_if;
+            std::string end_block_name = "%end_"+now_if;
+            std::string cond = "%" + std::to_string(cnt++);
+            str += "\t" + cond + " = ne " + res1 + ", 0\n";
+            str += "\tbr " + cond + ", " + then_block_name + ", " + end_block_name + "\n";
+            str += "\n";
+            
+            str += then_block_name+":\n";
+            now_block = then_block_name;
+            block_end[then_block_name] = false;
             auto res2 = eq_expr->koopa_ir();
+            std::string tmp = "%" + std::to_string(cnt++);
+            str += "\t" + tmp + " = ne " + res2 + ", 0\n";
+            str += "\tstore " + tmp + ", "+ ret + "\n";
+            str += "\tjump "+end_block_name+"\n";
+            block_end[now_block] = true;
+            str += "\n";
 
-            std::string temp1 = "%" + std::to_string(cnt++);
-            std::string temp2 = "%" + std::to_string(cnt++);
+            now_block = end_block_name;
+            block_end[end_block_name] = false;
+            str += end_block_name+":\n";
+            auto old_ret = ret;
             ret = "%" + std::to_string(cnt++);
-
-            str += "\t" + temp1 + " = ne " + res1 + ", 0\n";
-            str += "\t" + temp2 + " = ne " + res2 + ", 0\n";
-            str += "\t" + ret + " = and " + temp1 + ", " + temp2 + "\n";
+            str += "\t" + ret + " = load " + old_ret + "\n";
+            break;      
     }
     return ret;
 }

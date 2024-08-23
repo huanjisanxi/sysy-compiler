@@ -34,7 +34,7 @@ using namespace std;
 %token <str_val> IDENT 
 %token <int_val> INT_CONST
 
-%type <ast_val> FuncDef FuncType Block Stmt BlockItem
+%type <ast_val> FuncDef Block Stmt BlockItem
 %type <expr_ast_val> Expr UnaryExpr PrimaryExpr AddExpr MulExpr LOrExpr LAndExpr EqExpr RelExpr ConstExpr ConstInitVal LVal LeftLVal 
 %type <ast_val> Decl ConstDecl ConstDef CallParam
 %type <ast_val> VarDecl VarDef FuncParam 

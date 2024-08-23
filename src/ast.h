@@ -22,6 +22,7 @@ extern std::vector<std::string> nested_while_stack;
 extern std::unordered_map<std::string, bool> has_ret;
 extern std::unordered_map<std::string, bool> func_ret;
 extern std::string now_func;
+extern int res_cnt;
 
 class BaseAST;
 class CompUnitAST;
@@ -314,7 +315,7 @@ public:
                 if(lor_expr->getVal()){
                     return true;
                 }
-                return lor_expr->getVal()||land_expr->getVal();
+                return bool(land_expr->getVal());
             }
         }
         return 0;
@@ -341,7 +342,7 @@ public:
                 if(!land_expr->getVal()){
                     return false;
                 }
-                return land_expr->getVal()&&eq_expr->getVal();
+                return bool(eq_expr->getVal());
             }
         }
         return 0;
