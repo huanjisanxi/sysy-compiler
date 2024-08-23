@@ -41,7 +41,7 @@ using namespace std;
 %type <expr_ast_val> VarInitVal 
 %type <str_val> BType
 %type <int_val> Number
-%type <vec_val> BlockItemList ConstDefList VarDefList FuncDefList FuncParamList CallParamList
+%type <vec_val> BlockItemList ConstDefList VarDefList UnitList FuncParamList CallParamList
 
 %%
 
@@ -54,38 +54,74 @@ using namespace std;
   ; */
 
 CompUnit
-  : FuncDefList {
+  : UnitList {
     auto comp_unit = make_unique<CompUnitAST>();
     vector<unique_ptr<BaseAST>> *vec = ($1);
     for (auto it = vec->begin(); it!= vec->end(); it++)
-      comp_unit->func_def_list.push_back(move(*it));
+      comp_unit->unit_list.push_back(move(*it));
     ast = move(comp_unit);
   }
   ;
 
-FuncDefList
-  : FuncDef{
+UnitList
+  : Decl{
     vector<unique_ptr<BaseAST>> *vec = new vector<unique_ptr<BaseAST>>;
     vec->push_back(unique_ptr<BaseAST>($1));
     $$ = vec;
   }
-  | FuncDefList FuncDef{
+  | FuncDef{
+    vector<unique_ptr<BaseAST>> *vec = new vector<unique_ptr<BaseAST>>;
+    vec->push_back(unique_ptr<BaseAST>($1));
+    $$ = vec;
+  }
+  | UnitList Decl{
     vector<unique_ptr<BaseAST>> *vec = ($1);
     vec->push_back(unique_ptr<BaseAST>($2));
     $$ = vec;
   }
-
+  | UnitList FuncDef{
+    vector<unique_ptr<BaseAST>> *vec = ($1);
+    vec->push_back(unique_ptr<BaseAST>($2));
+    $$ = vec;
+  }
+  ;
+  
 FuncDef
-  :FuncType IDENT '(' ')' Block{
+  : INT IDENT '(' ')' Block{
     auto func_def = new FuncDefAST();
-    func_def->func_type = unique_ptr<BaseAST>($1);
+    auto func_type = new FuncTypeAST();
+    func_type->type = string("int");
+    func_def->func_type = unique_ptr<BaseAST>(func_type);
     func_def->ident = *unique_ptr<string>($2);
     func_def->block = unique_ptr<BaseAST>($5);
     $$ = func_def;
   }
-  |FuncType IDENT '(' FuncParamList ')' Block{
+  | INT IDENT '(' FuncParamList ')' Block{
     auto func_def = new FuncDefAST();
-    func_def->func_type = unique_ptr<BaseAST>($1);
+    auto func_type = new FuncTypeAST();
+    func_type->type = string("int");
+    func_def->func_type = unique_ptr<BaseAST>(func_type);
+    func_def->ident = *unique_ptr<string>($2);
+    func_def->block = unique_ptr<BaseAST>($6);
+    vector<unique_ptr<BaseAST>> *vec = ($4);
+    for(auto it = vec->begin(); it!= vec->end(); it++)
+      func_def->func_param_list.push_back(move(*it));
+    $$ = func_def;
+  }
+  | VOID IDENT '(' ')' Block{
+    auto func_def = new FuncDefAST();
+    auto func_type = new FuncTypeAST();
+    func_type->type = string("void");
+    func_def->func_type = unique_ptr<BaseAST>(func_type);
+    func_def->ident = *unique_ptr<string>($2);
+    func_def->block = unique_ptr<BaseAST>($5);
+    $$ = func_def;
+  }
+  | VOID IDENT '(' FuncParamList ')' Block{
+    auto func_def = new FuncDefAST();
+    auto func_type = new FuncTypeAST();
+    func_type->type = string("void");
+    func_def->func_type = unique_ptr<BaseAST>(func_type);
     func_def->ident = *unique_ptr<string>($2);
     func_def->block = unique_ptr<BaseAST>($6);
     vector<unique_ptr<BaseAST>> *vec = ($4);
@@ -115,7 +151,7 @@ FuncParam
     $$ = func_param;
   }
 
-FuncType
+/* FuncType
   : INT{
     auto func_type = new FuncTypeAST();
     func_type->type = string("int");
@@ -126,7 +162,7 @@ FuncType
     func_type->type = string("void");
     $$ = func_type;
   }
-  ;
+  ; */
 
 Block
   : '{' BlockItemList '}' {
@@ -548,7 +584,7 @@ Decl
   ;
 
 ConstDecl
-  : CONST BType ConstDefList ';'{
+  : CONST INT ConstDefList ';'{
     auto const_decl = new ConstDeclAST();
     vector<unique_ptr<BaseAST>> *vec = ($3);
     for (auto it = vec->begin(); it != vec->end(); it++)
@@ -604,7 +640,7 @@ ConstExpr
   ;
 
 VarDecl
-  : BType VarDefList ';'{
+  : INT VarDefList ';'{
     auto var_decl = new VarDeclAST();
     vector<unique_ptr<BaseAST>> *vec = ($2);
     for (auto it = vec->begin(); it != vec->end(); it++)

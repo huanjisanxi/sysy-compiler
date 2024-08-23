@@ -68,7 +68,7 @@ class CompUnitAST : public BaseAST {
 public:
     // 用智能指针管理对象
     // std::unique_ptr<BaseAST> func_def;
-    std::vector<std::unique_ptr<BaseAST>> func_def_list;
+    std::vector<std::unique_ptr<BaseAST>> unit_list;
 
     void Dump() const override;
     std::string koopa_ir() const override;

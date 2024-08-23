@@ -198,19 +198,16 @@ std::string CompUnitAST::koopa_ir() const {
     func_ret["getint"]=true;
     func_ret["getch"]=true;
     func_ret["getarray"]=true;
-    for(auto& item : func_def_list){
-        std::unordered_map<std::string, MyVar> next_table;
-        symbol_tables.push_back(next_table);
-        block_num++;
+    for(auto& item : unit_list){
         item->koopa_ir();
-        str+="\n";
-        symbol_tables.pop_back();
-        block_num--;
     }
     return "";
 }
 
 std::string FuncDefAST::koopa_ir() const {
+    std::unordered_map<std::string, MyVar> next_table;
+    symbol_tables.push_back(next_table);
+    block_num++;
     now_func=ident;
     str += "fun @"+ident+"(";
     std::vector<std::string> ident_list;
@@ -249,6 +246,9 @@ std::string FuncDefAST::koopa_ir() const {
         }
     }
     str += "}\n";
+    symbol_tables.pop_back();
+    block_num--;
+    str+="\n";
     return "";
 }
 
@@ -425,13 +425,14 @@ std::string UnaryExprAST::koopa_ir() const {
             ret = primary_expr->koopa_ir();  
             break;
         case CALL:
-            ret = "%"+std::to_string(cnt++);
             for(auto& param : call_expr_list){
                 tmp.push_back(param->koopa_ir());
             }
             str+="\t";
-            if(func_ret[call_ident])
+            if(func_ret[call_ident]){
+                ret = "%"+std::to_string(cnt++);
                 str+=ret+" = ";
+            }
             str += "call @"+call_ident+"(";
             for(int i=0;i<tmp.size();++i){
                 str+=tmp[i];
@@ -629,9 +630,6 @@ std::string LeftLValAST::koopa_ir() const {
 }
 
 std::string DeclAST::koopa_ir() const {
-    if(block_end[now_block]){
-        return "";
-    }
     if(flag==CONST_DECL){
         const_decl->koopa_ir();
     }
@@ -678,10 +676,21 @@ std::string VarDefAST::koopa_ir() const {
         symbol_tables[block_num][ident] = MyVar("int", 0, false, ident_cnt++, true);
     }
 
-    std::string type = "i32";
-    str += "\t%" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc " + type + '\n';
-    if(is_init){
-        str += "\tstore " + var_init_val->koopa_ir() + ", %" + ident + "_" + std::to_string(ident_id(ident)) + "\n";
+    if(ident_floor(ident)!=0){
+        std::string type = "i32";
+        str += "\t%" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc " + type + '\n';
+        if(is_init){
+            str += "\tstore " + var_init_val->koopa_ir() + ", %" + ident + "_" + std::to_string(ident_id(ident)) + "\n";
+        }
+    }
+    else{
+        str += "global %" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc i32, ";
+        if(is_init){
+            str+= var_init_val->koopa_ir() + '\n';
+        } 
+        else{
+            str+= "0\n";
+        }
     }
     return "";
 }
@@ -706,12 +715,11 @@ int ident_id(std::string ident){
             return symbol_tables[i][ident].id;
         }
     }
-    return -1;
+    return 0;
 }
 
 void show_table(){
     for(int i=0;i<=block_num;i++){
-        std::cout<<"table"<<i<<std::endl;
         for(auto it = symbol_tables[i].begin(); it!= symbol_tables[i].end(); it++){
             std::cout<<it->first<<" : "<<it->second.val<<"  "<<it->second.type<<"  "<<it->second.is_const<<std::endl;
         }
