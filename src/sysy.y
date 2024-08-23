@@ -434,7 +434,7 @@ MulExpr
     mul_expr->mul_expr = unique_ptr<BaseExprAST>($1);
     mul_expr->op = "/";
     mul_expr->unary_expr = unique_ptr<BaseExprAST>($3);
-    mul_expr->val = $1->val / $3->val;
+    // mul_expr->val = $1->val / $3->val;
     $$ = mul_expr;
   }
   | MulExpr '%' UnaryExpr {
