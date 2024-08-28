@@ -405,7 +405,12 @@ public:
 
 class LValAST : public BaseExprAST{
 public:
+    enum Flag{
+        IDENT=0, // Ident
+        LVAL_IDX, // LVal "[" Exp "]"
+    }flag;
     std::string ident;
+    std::unique_ptr<BaseExprAST> idx;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -416,7 +421,12 @@ public:
 
 class LeftLValAST: public BaseExprAST{
 public:
+    enum Flag{
+        IDENT=0, // Ident
+        LVAL_IDX, // LVal "[" Exp "]"
+    }flag;
     std::string ident;
+    std::unique_ptr<BaseExprAST> idx;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -450,8 +460,13 @@ public:
 
 class ConstDefAST : public BaseAST{
 public:
+    enum Flag{
+        VAR=0,
+        ARRAY=1,
+    } flag;
     std::string ident;
     std::unique_ptr<BaseExprAST> const_init_val;
+    std::unique_ptr<BaseExprAST> len;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -460,6 +475,7 @@ public:
 class ConstInitValAST : public BaseExprAST{
 public:
     std::unique_ptr<BaseExprAST> const_expr;
+    std::vector<std::unique_ptr<BaseExprAST>> const_expr_list;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -490,9 +506,14 @@ public:
 
 class VarDefAST : public BaseAST{
 public:
+    enum Flag{
+        VAR=0,
+        ARRAY=1,
+    } flag;
     std::string ident;
     std::unique_ptr<BaseExprAST> var_init_val;
     bool is_init;
+    std::unique_ptr<BaseExprAST> len;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -501,6 +522,7 @@ public:
 class VarInitValAST : public BaseExprAST{
 public:
     std::unique_ptr<BaseExprAST> expr;
+    std::vector<std::unique_ptr<BaseExprAST>> expr_list;
 
     void Dump() const override;
     std::string koopa_ir() const override;

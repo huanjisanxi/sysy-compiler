@@ -28,6 +28,7 @@ using namespace std;
   BaseAST *ast_val;
   BaseExprAST *expr_ast_val;
   std::vector<std::unique_ptr<BaseAST>> *vec_val;
+  std::vector<std::unique_ptr<BaseExprAST>> *expr_vec_val;
 }
 
 %token INT VOID RETURN CONST IF ELSE WHILE BREAK CONTINUE
@@ -42,16 +43,9 @@ using namespace std;
 %type <str_val> BType
 %type <int_val> Number
 %type <vec_val> BlockItemList ConstDefList VarDefList UnitList FuncParamList CallParamList
+%type <expr_vec_val> ConstInitValList VarInitValList
 
 %%
-
-/* CompUnit
-  : FuncDef {
-    auto comp_unit = make_unique<CompUnitAST>();
-    comp_unit->func_def = unique_ptr<BaseAST>($1);
-    ast = move(comp_unit);
-  }
-  ; */
 
 CompUnit
   : UnitList {
@@ -276,6 +270,14 @@ LeftLVal
   : IDENT {
     auto lval = new LeftLValAST();
     lval->ident = *unique_ptr<string>($1);
+    lval->flag = LeftLValAST::IDENT;
+    $$ = lval;
+  }
+  | IDENT '[' Expr ']' {
+    auto lval = new LeftLValAST();
+    lval->ident = *unique_ptr<string>($1);
+    lval->idx = unique_ptr<BaseExprAST>($3);
+    lval->flag = LeftLValAST::LVAL_IDX;
     $$ = lval;
   }
   ;
@@ -564,6 +566,14 @@ LVal
   : IDENT {
     auto lval = new LValAST();
     lval->ident = *unique_ptr<string>($1);
+    lval->flag = LValAST::IDENT;
+    $$ = lval;
+  }
+  | IDENT '[' Expr ']' {
+    auto lval = new LValAST();
+    lval->ident = *unique_ptr<string>($1);
+    lval->idx = unique_ptr<BaseExprAST>($3);
+    lval->flag = LValAST::LVAL_IDX;
     $$ = lval;
   }
   ;
@@ -617,6 +627,15 @@ ConstDef
     auto const_def = new ConstDefAST();
     const_def->ident = *unique_ptr<string>($1);
     const_def->const_init_val = unique_ptr<BaseExprAST>($3);
+    const_def->flag = ConstDefAST::VAR;
+    $$ = const_def;
+  }
+  | IDENT '[' ConstExpr ']' '=' ConstInitVal {
+    auto const_def = new ConstDefAST();
+    const_def->ident = *unique_ptr<string>($1);
+    const_def->const_init_val = unique_ptr<BaseExprAST>($6);
+    const_def->flag = ConstDefAST::ARRAY;
+    const_def->len = unique_ptr<BaseExprAST>($3);
     $$ = const_def;
   }
   ;
@@ -627,6 +646,30 @@ ConstInitVal
     const_init_val->const_expr = unique_ptr<BaseExprAST>($1);
     const_init_val->val = $1->val;
     $$ = const_init_val;
+  }
+  | '{' '}' {
+    auto const_init_val = new ConstInitValAST();
+    $$ = const_init_val;
+  }
+  | '{' ConstInitValList '}' {
+    auto const_init_val = new ConstInitValAST();
+    vector<unique_ptr<BaseExprAST>> *vec = ($2);
+    for (auto it = vec->begin(); it!= vec->end(); it++)
+      const_init_val->const_expr_list.push_back(move(*it));
+    $$ = const_init_val;
+  }
+  ;
+
+ConstInitValList
+  : ConstInitVal {
+    vector<unique_ptr<BaseExprAST>> *vec = new vector<unique_ptr<BaseExprAST>>;
+    vec->push_back(unique_ptr<BaseExprAST>($1));
+    $$ = vec;
+  }
+  | ConstInitValList ',' ConstInitVal {
+    vector<unique_ptr<BaseExprAST>> *vec = ($1);
+    vec->push_back(unique_ptr<BaseExprAST>($3));
+    $$ = vec;
   }
   ;
 
@@ -676,6 +719,24 @@ VarDef
     var_def->is_init = true;
     $$ = var_def;
   }
+  | IDENT '[' ConstExpr ']' {
+    auto var_def = new VarDefAST();
+    var_def->ident = *unique_ptr<string>($1);
+    var_def->flag = VarDefAST::ARRAY;
+    var_def->var_init_val = unique_ptr<BaseExprAST>(new VarInitValAST());
+    var_def->is_init = false;
+    var_def->len = unique_ptr<BaseExprAST>($3);
+    $$ = var_def;
+  }
+  | IDENT '[' ConstExpr ']' '=' VarInitVal {
+    auto var_def = new VarDefAST();
+    var_def->ident = *unique_ptr<string>($1);
+    var_def->var_init_val = unique_ptr<BaseExprAST>($6);
+    var_def->is_init = true;
+    var_def->flag = VarDefAST::ARRAY;
+    var_def->len = unique_ptr<BaseExprAST>($3);
+    $$ = var_def;
+  }
   ;
 
 VarInitVal
@@ -684,6 +745,30 @@ VarInitVal
     var_init_val->expr = unique_ptr<BaseExprAST>($1);
     var_init_val->val = $1->val;
     $$ = var_init_val;
+  }
+  | '{' '}' {
+    auto var_init_val = new VarInitValAST();
+    $$ = var_init_val;
+  }
+  | '{' VarInitValList '}' {
+    auto var_init_val = new VarInitValAST();
+    vector<unique_ptr<BaseExprAST>> *vec = ($2);
+    for (auto it = vec->begin(); it!= vec->end(); it++)
+      var_init_val->expr_list.push_back(move(*it));
+    $$ = var_init_val;
+  }
+  ;
+
+VarInitValList
+  : VarInitVal {
+    vector<unique_ptr<BaseExprAST>> *vec = new vector<unique_ptr<BaseExprAST>>;
+    vec->push_back(unique_ptr<BaseExprAST>($1));
+    $$ = vec;
+  }
+  | VarInitValList ',' VarInitVal {
+    vector<unique_ptr<BaseExprAST>> *vec = ($1);
+    vec->push_back(unique_ptr<BaseExprAST>($3));
+    $$ = vec;
   }
   ;
 

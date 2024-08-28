@@ -33,7 +33,6 @@ std::vector<std::string> nested_while_stack;
 std::unordered_map<string, bool> has_ret;
 std::string now_func;
 std::unordered_map<string,bool> func_ret;
-// std::unordered_map<string, MyVar> symbol_table;
 std::set<string> const_symbol;
 int res_cnt=0;
 int test_val ;
@@ -67,6 +66,7 @@ int main(int argc, const char *argv[]) {
     cout<<"symbol_table size = "<<symbol_tables[0].size()<<endl;
     for(auto it = symbol_tables[0].begin(); it!= symbol_tables[0].end(); it++){
       cout<<it->first<<" : "<<it->second.val<<"  "<<it->second.type<<"  "<<it->second.is_const<<endl;
+      std::cout<<it->second.array.size();
     }
     fclose(stdout);
   }
