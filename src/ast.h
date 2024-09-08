@@ -415,7 +415,10 @@ public:
     void Dump() const override;
     std::string koopa_ir() const override;
     int getVal() const override{
-        return symbol_tables[ident_floor(ident)][ident].val;
+        if(flag==IDENT)
+            return symbol_tables[ident_floor(ident)][ident].val;
+        else
+            return symbol_tables[ident_floor(ident)][ident].array[idx->getVal()];
     }
 };
 
@@ -431,7 +434,10 @@ public:
     void Dump() const override;
     std::string koopa_ir() const override;
     int getVal() const override{
-        return symbol_tables[ident_floor(ident)][ident].val;
+        if(flag==IDENT)
+            return symbol_tables[ident_floor(ident)][ident].val;
+        else
+            return symbol_tables[ident_floor(ident)][ident].array[idx->getVal()];
     }
 };
 

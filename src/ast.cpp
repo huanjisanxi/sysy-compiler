@@ -302,7 +302,11 @@ std::string StmtAST::koopa_ir() const {
         std::string id = std::to_string(ident_id(ident));
         std::string val = expr->koopa_ir();
         symbol_tables[ident_floor(ident)][ident].val = expr->getVal();
-        str += "\tstore " + val + ", %" + ident + "_" + id + "\n";
+        auto p=(LeftLValAST*)lval.get();
+        if(p->flag==LeftLValAST::IDENT)
+            str += "\tstore " + val + ", %" + ident + "_" + id + "\n";
+        else
+            str += "\tstore " + val + ", " + ident + "\n";
     }
     else if(flag == BLOCK){
         std::unordered_map<std::string, MyVar> next_table;
@@ -686,6 +690,10 @@ std::string LeftLValAST::koopa_ir() const {
         return ident;
     else{
         //TODO
+        std::string tmp = "%" + std::to_string(cnt++);
+        std::string idx_ret = idx->koopa_ir();
+        str += "\t" + tmp + " = getelemptr %" + ident+"_"+std::to_string(ident_id(ident)) + ", " + idx_ret + "\n"; 
+        return tmp;
     }
 }
 
@@ -711,13 +719,6 @@ std::string ConstDefAST::koopa_ir() const {
         symbol_tables[block_num][ident] = MyVar("int", const_init_val->getVal(), true, ident_cnt++);
     }
     else if(flag==ARRAY){
-        // symbol_tables[block_num][ident] = MyVar("array", 0, true, ident_cnt++);
-        // symbol_tables[block_num][ident].array.resize(len->getVal(),0);
-        // auto p = (ConstInitValAST*)const_init_val.get();
-        // int len = p->const_expr_list.size();
-        // for(int i=0;i<len;++i){
-        //     symbol_tables[block_num][ident].array[i]=p->const_expr_list[i]->getVal();
-        // }
         symbol_tables[block_num][ident] = MyVar("array", 0, false, ident_cnt++);
         symbol_tables[block_num][ident].array.resize(len->getVal(),0);
         auto p = (ConstInitValAST*)const_init_val.get();
@@ -744,7 +745,10 @@ std::string ConstDefAST::koopa_ir() const {
             str += "global %" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc [i32, ";
             str += std::to_string(len->getVal()) + "], {";
             for(int i=0;i<len->getVal();++i){
-                str += std::to_string(p->const_expr_list[i]->getVal());
+                if(i<init_len)
+                    str += std::to_string(p->const_expr_list[i]->getVal());
+                else
+                    str += "0";
                 if(i!=len->getVal()-1) str += ", ";
             }
             str += "}\n";
@@ -823,7 +827,10 @@ std::string VarDefAST::koopa_ir() const {
             str += "global %" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc [i32, ";
             str += std::to_string(len->getVal()) + "], {";
             for(int i=0;i<len->getVal();++i){
-                str += std::to_string(p->expr_list[i]->getVal());
+                if(i<init_len)
+                    str += std::to_string(p->expr_list[i]->getVal());
+                else
+                    str += "0";
                 if(i!=len->getVal()-1) str += ", ";
             }
             str += "}\n";
