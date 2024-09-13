@@ -668,13 +668,20 @@ std::string RelExprAST::koopa_ir() const {
 
 std::string LValAST::koopa_ir() const {
     if(flag==IDENT){
-        if(symbol_tables[ident_floor(ident)][ident].is_const==true){
-            return std::to_string(symbol_tables[ident_floor(ident)][ident].val);
+        if(symbol_tables[ident_floor(ident)][ident].array.size()){
+            std::string ret = "%" + std::to_string(cnt++);
+            str += "\t" + ret + " = getelemptr %" + ident + "_" + std::to_string(ident_id(ident)) + ", 0" + "\n";
+            return ret;
         }
         else{
-            std::string ret = "%" + std::to_string(cnt++);
-            str += "\t" + ret + " = load %" + ident + "_" + std::to_string(ident_id(ident)) + "\n"; 
-            return ret;
+            if(symbol_tables[ident_floor(ident)][ident].is_const==true){
+                return std::to_string(symbol_tables[ident_floor(ident)][ident].val);
+            }
+            else{
+                std::string ret = "%" + std::to_string(cnt++);
+                str += "\t" + ret + " = load %" + ident + "_" + std::to_string(ident_id(ident)) + "\n"; 
+                return ret;
+            }
         }
     }
     else if(flag==LVAL_IDX){

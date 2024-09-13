@@ -90,6 +90,10 @@ public:
 
 class FuncParamAST : public BaseAST{
 public:
+    enum Flag{
+        INT,
+        ARRAY,
+    }flag;
     std::string btype;
     std::string ident;
 
