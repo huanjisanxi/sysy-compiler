@@ -23,6 +23,7 @@ extern std::unordered_map<std::string, bool> has_ret;
 extern std::unordered_map<std::string, bool> func_ret;
 extern std::string now_func;
 extern int res_cnt;
+extern int ptr_cnt;
 
 class BaseAST;
 class CompUnitAST;
@@ -472,7 +473,7 @@ public:
     } flag;
     std::string ident;
     std::unique_ptr<BaseExprAST> const_init_val;
-    std::unique_ptr<BaseExprAST> len;
+    std::vector<std::unique_ptr<BaseExprAST>> len;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -480,6 +481,10 @@ public:
 
 class ConstInitValAST : public BaseExprAST{
 public:
+    enum Flag{
+        EXPR=0,
+        ARRAY=1,
+    } flag;
     std::unique_ptr<BaseExprAST> const_expr;
     std::vector<std::unique_ptr<BaseExprAST>> const_expr_list;
 
@@ -519,7 +524,7 @@ public:
     std::string ident;
     std::unique_ptr<BaseExprAST> var_init_val;
     bool is_init;
-    std::unique_ptr<BaseExprAST> len;
+    std::vector<std::unique_ptr<BaseExprAST>> len;
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -527,6 +532,10 @@ public:
 
 class VarInitValAST : public BaseExprAST{
 public:
+    enum Flag{
+        EXPR=0,
+        ARRAY=1,
+    } flag;
     std::unique_ptr<BaseExprAST> expr;
     std::vector<std::unique_ptr<BaseExprAST>> expr_list;
 

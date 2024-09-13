@@ -35,6 +35,7 @@ std::string now_func;
 std::unordered_map<string,bool> func_ret;
 std::set<string> const_symbol;
 int res_cnt=0;
+int ptr_cnt=0;
 int test_val ;
 
 int main(int argc, const char *argv[]) {

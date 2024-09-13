@@ -42,8 +42,8 @@ using namespace std;
 %type <expr_ast_val> VarInitVal 
 %type <str_val> BType
 %type <int_val> Number
-%type <vec_val> BlockItemList ConstDefList VarDefList UnitList FuncParamList CallParamList
-%type <expr_vec_val> ConstInitValList VarInitValList
+%type <vec_val> BlockItemList ConstDefList VarDefList UnitList FuncParamList CallParamList 
+%type <expr_vec_val> ConstInitValList VarInitValList IndexList
 
 %%
 
@@ -144,19 +144,6 @@ FuncParam
     func_param->ident = *unique_ptr<string>($2);
     $$ = func_param;
   }
-
-/* FuncType
-  : INT{
-    auto func_type = new FuncTypeAST();
-    func_type->type = string("int");
-    $$ = func_type;
-  }
-  | VOID{
-    auto func_type = new FuncTypeAST();
-    func_type->type = string("void");
-    $$ = func_type;
-  }
-  ; */
 
 Block
   : '{' BlockItemList '}' {
@@ -630,12 +617,14 @@ ConstDef
     const_def->flag = ConstDefAST::VAR;
     $$ = const_def;
   }
-  | IDENT '[' ConstExpr ']' '=' ConstInitVal {
+  | IDENT IndexList '=' VarInitVal {
     auto const_def = new ConstDefAST();
     const_def->ident = *unique_ptr<string>($1);
-    const_def->const_init_val = unique_ptr<BaseExprAST>($6);
+    const_def->const_init_val = unique_ptr<BaseExprAST>($4);
     const_def->flag = ConstDefAST::ARRAY;
-    const_def->len = unique_ptr<BaseExprAST>($3);
+    vector<unique_ptr<BaseExprAST>> *vec = ($2);
+    for(auto it = vec->begin(); it != vec->end(); it++)
+      const_def->len.push_back(move(*it));
     $$ = const_def;
   }
   ;
@@ -643,21 +632,24 @@ ConstDef
 ConstInitVal
   : ConstExpr {
     auto const_init_val = new ConstInitValAST();
+    const_init_val->flag = ConstInitValAST::EXPR;
     const_init_val->const_expr = unique_ptr<BaseExprAST>($1);
     const_init_val->val = $1->val;
     $$ = const_init_val;
   }
-  | '{' '}' {
+  /* | '{' '}' {
     auto const_init_val = new ConstInitValAST();
+    const_init_val->flag = ConstInitValAST::ARRAY;
     $$ = const_init_val;
   }
   | '{' ConstInitValList '}' {
     auto const_init_val = new ConstInitValAST();
+    const_init_val->flag = ConstInitValAST::ARRAY;
     vector<unique_ptr<BaseExprAST>> *vec = ($2);
     for (auto it = vec->begin(); it!= vec->end(); it++)
       const_init_val->const_expr_list.push_back(move(*it));
     $$ = const_init_val;
-  }
+  } */
   ;
 
 ConstInitValList
@@ -719,39 +711,59 @@ VarDef
     var_def->is_init = true;
     $$ = var_def;
   }
-  | IDENT '[' ConstExpr ']' {
+  | IDENT IndexList {
     auto var_def = new VarDefAST();
     var_def->ident = *unique_ptr<string>($1);
     var_def->flag = VarDefAST::ARRAY;
     var_def->var_init_val = unique_ptr<BaseExprAST>(new VarInitValAST());
     var_def->is_init = false;
-    var_def->len = unique_ptr<BaseExprAST>($3);
+    vector<unique_ptr<BaseExprAST>> *vec = ($2);
+    for (auto it = vec->begin(); it != vec->end(); it++)
+      var_def->len.push_back(move(*it));
     $$ = var_def;
   }
-  | IDENT '[' ConstExpr ']' '=' VarInitVal {
+  | IDENT IndexList '=' VarInitVal {
     auto var_def = new VarDefAST();
     var_def->ident = *unique_ptr<string>($1);
-    var_def->var_init_val = unique_ptr<BaseExprAST>($6);
+    var_def->var_init_val = unique_ptr<BaseExprAST>($4);
     var_def->is_init = true;
     var_def->flag = VarDefAST::ARRAY;
-    var_def->len = unique_ptr<BaseExprAST>($3);
+    vector<unique_ptr<BaseExprAST>> *vec = ($2);
+    for (auto it = vec->begin(); it != vec->end(); it++)
+      var_def->len.push_back(move(*it));
     $$ = var_def;
+  }
+  ;
+
+IndexList
+  : '[' ConstExpr ']' {
+    vector<unique_ptr<BaseExprAST>> *vec = new vector<unique_ptr<BaseExprAST>>;
+    vec->push_back(unique_ptr<BaseExprAST>($2));
+    $$ = vec;
+  }
+  | IndexList '[' ConstExpr ']' {
+    vector<unique_ptr<BaseExprAST>> *vec = ($1);
+    vec->push_back(unique_ptr<BaseExprAST>($3));
+    $$ = vec;
   }
   ;
 
 VarInitVal
   : Expr {
     auto var_init_val = new VarInitValAST();
+    var_init_val->flag = VarInitValAST::EXPR;
     var_init_val->expr = unique_ptr<BaseExprAST>($1);
     var_init_val->val = $1->val;
     $$ = var_init_val;
   }
   | '{' '}' {
     auto var_init_val = new VarInitValAST();
+    var_init_val->flag = VarInitValAST::ARRAY;
     $$ = var_init_val;
   }
   | '{' VarInitValList '}' {
     auto var_init_val = new VarInitValAST();
+    var_init_val->flag = VarInitValAST::ARRAY;
     vector<unique_ptr<BaseExprAST>> *vec = ($2);
     for (auto it = vec->begin(); it!= vec->end(); it++)
       var_init_val->expr_list.push_back(move(*it));

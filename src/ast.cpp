@@ -1,12 +1,14 @@
 #include "ast.h"
 
 
-
-// for Dump
-
 void show_table();
 int ident_floor(std::string ident);
 int ident_id(std::string ident);
+void init2array(BaseExprAST** start, int* len_start, int* len_end, const VarInitValAST* var_init_val);
+std::string array2Aggregate(BaseExprAST** init_array, int* idx, int* dim, int* dim_end);
+std::string array2ptr(BaseExprAST** init_array, int* idx, std::string base_ptr, int* dim, int* dim_end);
+
+// for Dump
 
 void CompUnitAST::Dump() const  {
     std::cout << "CompUnitAST { ";
@@ -719,40 +721,91 @@ std::string ConstDefAST::koopa_ir() const {
         symbol_tables[block_num][ident] = MyVar("int", const_init_val->getVal(), true, ident_cnt++);
     }
     else if(flag==ARRAY){
-        symbol_tables[block_num][ident] = MyVar("array", 0, false, ident_cnt++);
-        symbol_tables[block_num][ident].array.resize(len->getVal(),0);
-        auto p = (ConstInitValAST*)const_init_val.get();
-        int init_len = p->const_expr_list.size();
-        for(int i=0;i<init_len;++i){
-            symbol_tables[block_num][ident].array[i]=p->const_expr_list[i]->getVal();
+        symbol_tables[block_num][ident] = MyVar("array", 0, true, ident_cnt++);
+        int total_len = 1;
+        int* dim_len = new int[len.size()];
+        int iter=0;
+        for(auto& it:len){
+            total_len *= it->getVal();
+            dim_len[iter++]=it->getVal();
         }
+        BaseExprAST** init_array = new BaseExprAST*[total_len];
+        memset(init_array, 0, total_len*sizeof(BaseExprAST*));
+        init2array(init_array, dim_len, dim_len+len.size(), (VarInitValAST*)const_init_val.get());
+
+        for(int i=0;i<total_len;i++){
+            if(init_array[i]){
+                symbol_tables[block_num][ident].array.push_back(init_array[i]->getVal());
+            }
+            else{
+                symbol_tables[block_num][ident].array.push_back(0);
+            }
+        }
+        symbol_tables[block_num][ident].dim_len.assign(dim_len, dim_len+len.size());
 
         if(ident_floor(ident)!=0){
-            str += "\t%" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc [i32, ";
-            str += std::to_string(len->getVal()) + "]\n";
-            for(int i=0;i<len->getVal();++i){
-                std::string tmp = "%" + std::to_string(cnt++);
-                str += "\t"+ tmp + " = getelemptr %" + ident +"_" + std::to_string(ident_id(ident))+", "+ std::to_string(i)+"\n";
-                if(i<init_len){
-                    str += "\tstore " + std::to_string(p->const_expr_list[i]->getVal()) + ", " + tmp + "\n";
-                }
-                else{
-                    str += "\tstore 0, " +tmp+"\n";
-                }
+            str += "\t%" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc ";
+            for(int* it = dim_len; it!=dim_len+len.size(); it++){
+                str += "[";
             }
+            str += "i32";
+            for(int*it = dim_len+len.size()-1; it!=dim_len-1; it--){
+                str += ", " + std::to_string(*it) + "]";
+            }
+            str += "\n";
+
+            std::string base_ptr = "%" + ident + "_" + std::to_string(ident_id(ident));
+            int idx = 0;
+            str += array2ptr(init_array, &idx, base_ptr, dim_len, dim_len+len.size());
         }
         else{
-            str += "global %" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc [i32, ";
-            str += std::to_string(len->getVal()) + "], {";
-            for(int i=0;i<len->getVal();++i){
-                if(i<init_len)
-                    str += std::to_string(p->const_expr_list[i]->getVal());
-                else
-                    str += "0";
-                if(i!=len->getVal()-1) str += ", ";
+            str += "global %" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc ";
+            for(int* it = dim_len; it!=dim_len+len.size(); it++){
+                str += "[";
             }
-            str += "}\n";
+            str += "i32";
+            for(int*it = dim_len+len.size()-1; it!=dim_len-1; it--){
+                str += ", " + std::to_string(*it) + "]";
+            }
+            str += ", ";
+            int idx = 0;
+            str += array2Aggregate(init_array, &idx, dim_len, dim_len+len.size());
+            str += "\n";
         }
+        symbol_tables[block_num][ident] = MyVar("array", 0, false, ident_cnt++);
+        // symbol_tables[block_num][ident].array.resize(len->getVal(),0);
+        // auto p = (ConstInitValAST*)const_init_val.get();
+        // int init_len = p->const_expr_list.size();
+        // for(int i=0;i<init_len;++i){
+        //     symbol_tables[block_num][ident].array[i]=p->const_expr_list[i]->getVal();
+        // }
+
+        // if(ident_floor(ident)!=0){
+        //     str += "\t%" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc [i32, ";
+        //     str += std::to_string(len->getVal()) + "]\n";
+        //     for(int i=0;i<len->getVal();++i){
+        //         std::string tmp = "%" + std::to_string(cnt++);
+        //         str += "\t"+ tmp + " = getelemptr %" + ident +"_" + std::to_string(ident_id(ident))+", "+ std::to_string(i)+"\n";
+        //         if(i<init_len){
+        //             str += "\tstore " + std::to_string(p->const_expr_list[i]->getVal()) + ", " + tmp + "\n";
+        //         }
+        //         else{
+        //             str += "\tstore 0, " +tmp+"\n";
+        //         }
+        //     }
+        // }
+        // else{
+        //     str += "global %" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc [i32, ";
+        //     str += std::to_string(len->getVal()) + "], {";
+        //     for(int i=0;i<len->getVal();++i){
+        //         if(i<init_len)
+        //             str += std::to_string(p->const_expr_list[i]->getVal());
+        //         else
+        //             str += "0";
+        //         if(i!=len->getVal()-1) str += ", ";
+        //     }
+        //     str += "}\n";
+        // }
     }
     return "";
 }
@@ -802,41 +855,124 @@ std::string VarDefAST::koopa_ir() const {
     }
     else if(flag==ARRAY){
         symbol_tables[block_num][ident] = MyVar("array", 0, false, ident_cnt++);
-        symbol_tables[block_num][ident].array.resize(len->getVal(),0);
-        auto p = (VarInitValAST*)var_init_val.get();
-        int init_len = p->expr_list.size();
-        for(int i=0;i<init_len;++i){
-            symbol_tables[block_num][ident].array[i]=p->expr_list[i]->getVal();
+        int total_len = 1;
+        int* dim_len = new int[len.size()];
+        int iter=0;
+        for(auto& it:len){
+            total_len *= it->getVal();
+            dim_len[iter++]=it->getVal();
         }
+        BaseExprAST** init_array = new BaseExprAST*[total_len];
+        memset(init_array, 0, total_len*sizeof(BaseExprAST*));
+        init2array(init_array, dim_len, dim_len+len.size(), (VarInitValAST*)var_init_val.get());
+
+        for(int i=0;i<total_len;i++){
+            if(init_array[i]){
+                symbol_tables[block_num][ident].array.push_back(init_array[i]->getVal());
+            }
+            else{
+                symbol_tables[block_num][ident].array.push_back(0);
+            }
+        }
+        symbol_tables[block_num][ident].dim_len.assign(dim_len, dim_len+len.size());
 
         if(ident_floor(ident)!=0){
-            str += "\t%" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc [i32, ";
-            str += std::to_string(len->getVal()) + "]\n";
-            for(int i=0;i<len->getVal();++i){
-                std::string tmp = "%" + std::to_string(cnt++);
-                str += "\t"+ tmp + " = getelemptr %" + ident +"_" + std::to_string(ident_id(ident))+", "+ std::to_string(i)+"\n";
-                if(i<init_len){
-                    str += "\tstore " + p->expr_list[i]->koopa_ir() + ", " + tmp + "\n";
-                }
-                else{
-                    str += "\tstore 0, " +tmp+"\n";
-                }
+            str += "\t%" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc ";
+            for(int* it = dim_len; it!=dim_len+len.size(); it++){
+                str += "[";
             }
+            str += "i32";
+            for(int*it = dim_len+len.size()-1; it!=dim_len-1; it--){
+                str += ", " + std::to_string(*it) + "]";
+            }
+            str += "\n";
+
+            std::string base_ptr = "%" + ident + "_" + std::to_string(ident_id(ident));
+            int idx = 0;
+            str += array2ptr(init_array, &idx, base_ptr, dim_len, dim_len+len.size());
         }
         else{
-            str += "global %" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc [i32, ";
-            str += std::to_string(len->getVal()) + "], {";
-            for(int i=0;i<len->getVal();++i){
-                if(i<init_len)
-                    str += std::to_string(p->expr_list[i]->getVal());
-                else
-                    str += "0";
-                if(i!=len->getVal()-1) str += ", ";
+            str += "global %" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc ";
+            for(int* it = dim_len; it!=dim_len+len.size(); it++){
+                str += "[";
             }
-            str += "}\n";
+            str += "i32";
+            for(int*it = dim_len+len.size()-1; it!=dim_len-1; it--){
+                str += ", " + std::to_string(*it) + "]";
+            }
+            str += ", ";
+            int idx = 0;
+            str += array2Aggregate(init_array, &idx, dim_len, dim_len+len.size());
+            str += "\n";
         }
     }
     return "";
+}
+
+std::string array2ptr(BaseExprAST** init_array, int* idx,std::string base_ptr, int* dim, int* dim_end){
+    std::string ret = "";
+    for(int i=0;i<*dim;i++){
+        std::string now_ptr = "%ptr" + std::to_string(ptr_cnt++);
+        ret += "\t" + now_ptr + " = getelemptr " + base_ptr + ", " + std::to_string(i) + "\n";
+        if(dim+1==dim_end){
+            if(init_array[*idx]){
+                ret += "\tstore " + init_array[*idx]->koopa_ir() + ", " + now_ptr + "\n";
+            }
+            else{
+                ret += "\tstore 0, " + now_ptr + "\n";
+            }
+            *idx+=1;
+        }
+        else{
+            ret += array2ptr(init_array, idx, now_ptr, dim+1, dim_end);
+        }
+    }
+    return ret;
+}
+
+std::string array2Aggregate(BaseExprAST** init_array, int* idx, int* dim, int* dim_end){
+    std::string ret = "{";
+    for(int i=0;i<*dim;i++){
+        if(dim+1==dim_end){
+            if(init_array[*idx]){
+                ret += std::to_string(init_array[*idx]->getVal());
+            }
+            else{
+                ret+= "0";
+            }
+            *idx+=1;
+            if(i!=*dim-1) ret += ", ";
+        }
+        else{
+            ret += array2Aggregate(init_array, idx, dim+1, dim_end);
+            if(i!=*dim-1) ret += ", ";
+        }
+    }
+    ret += "}";
+    return ret;
+}
+
+void init2array(BaseExprAST** start, int* len_start, int* len_end, const VarInitValAST* var_init_val){
+    BaseExprAST** idx=start;
+    for(auto& it: var_init_val->expr_list){
+        auto ptr=(VarInitValAST*)it.get();
+        if(ptr->flag==VarInitValAST::EXPR){
+            *idx = (BaseExprAST*)(ptr->expr).get();
+            idx++;
+        }
+        else if(ptr->flag==VarInitValAST::ARRAY){
+            init2array(idx, len_start+1, len_end, ptr);
+            int jump=1;
+            int delta = idx-start;
+            for(int* it=len_end-1; it!=len_start; it--){
+                if(delta%((*it)*jump)!=0){
+                    break;
+                }
+                jump*=*it;
+            }
+            idx+=jump;
+        }
+    }
 }
 
 std::string VarInitValAST::koopa_ir() const {
