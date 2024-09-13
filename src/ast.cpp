@@ -677,25 +677,35 @@ std::string LValAST::koopa_ir() const {
             return ret;
         }
     }
-    else{
-        std::string tmp = "%" + std::to_string(cnt++);
-        std::string idx_ret = idx->koopa_ir();
-        str += "\t" + tmp + " = getelemptr %" + ident+"_"+std::to_string(ident_id(ident)) + ", " + idx_ret + "\n"; 
-        std::string ret = "%" + std::to_string(cnt++);
-        str += "\t" + ret + " = load " + tmp + "\n";
+    else if(flag==LVAL_IDX){
+        std::string base_ptr = "%" + ident + "_" + std::to_string(ident_id(ident));
+        std::string ret = "";
+        for(auto& idx:idx_lst){
+            std::string idx_ret = idx->koopa_ir();
+            ret = "%ptr" + std::to_string(ptr_cnt++);
+            str += "\t" + ret + " = getelemptr " + base_ptr + ", " + idx_ret + "\n";
+            base_ptr = ret;
+        }
+        ret = "%" + std::to_string(cnt++);
+        str += "\t" + ret + " = load " + base_ptr + "\n";
         return ret;
     }
+    return "";
 }
 
 std::string LeftLValAST::koopa_ir() const {
     if(flag==IDENT)
         return ident;
     else{
-        //TODO
-        std::string tmp = "%" + std::to_string(cnt++);
-        std::string idx_ret = idx->koopa_ir();
-        str += "\t" + tmp + " = getelemptr %" + ident+"_"+std::to_string(ident_id(ident)) + ", " + idx_ret + "\n"; 
-        return tmp;
+        std::string base_ptr = "%" + ident + "_" + std::to_string(ident_id(ident));
+        std::string ret = "";
+        for(auto& idx:idx_lst){
+            std::string idx_ret = idx->koopa_ir();
+            ret = "%ptr" + std::to_string(ptr_cnt++);
+            str += "\t" + ret + " = getelemptr " + base_ptr + ", " + idx_ret + "\n";
+            base_ptr = ret;
+        }
+        return ret;
     }
 }
 
@@ -772,40 +782,6 @@ std::string ConstDefAST::koopa_ir() const {
             str += array2Aggregate(init_array, &idx, dim_len, dim_len+len.size());
             str += "\n";
         }
-        symbol_tables[block_num][ident] = MyVar("array", 0, false, ident_cnt++);
-        // symbol_tables[block_num][ident].array.resize(len->getVal(),0);
-        // auto p = (ConstInitValAST*)const_init_val.get();
-        // int init_len = p->const_expr_list.size();
-        // for(int i=0;i<init_len;++i){
-        //     symbol_tables[block_num][ident].array[i]=p->const_expr_list[i]->getVal();
-        // }
-
-        // if(ident_floor(ident)!=0){
-        //     str += "\t%" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc [i32, ";
-        //     str += std::to_string(len->getVal()) + "]\n";
-        //     for(int i=0;i<len->getVal();++i){
-        //         std::string tmp = "%" + std::to_string(cnt++);
-        //         str += "\t"+ tmp + " = getelemptr %" + ident +"_" + std::to_string(ident_id(ident))+", "+ std::to_string(i)+"\n";
-        //         if(i<init_len){
-        //             str += "\tstore " + std::to_string(p->const_expr_list[i]->getVal()) + ", " + tmp + "\n";
-        //         }
-        //         else{
-        //             str += "\tstore 0, " +tmp+"\n";
-        //         }
-        //     }
-        // }
-        // else{
-        //     str += "global %" + ident + "_" + std::to_string(ident_id(ident)) + " = alloc [i32, ";
-        //     str += std::to_string(len->getVal()) + "], {";
-        //     for(int i=0;i<len->getVal();++i){
-        //         if(i<init_len)
-        //             str += std::to_string(p->const_expr_list[i]->getVal());
-        //         else
-        //             str += "0";
-        //         if(i!=len->getVal()-1) str += ", ";
-        //     }
-        //     str += "}\n";
-        // }
     }
     return "";
 }

@@ -408,18 +408,26 @@ class LValAST : public BaseExprAST{
 public:
     enum Flag{
         IDENT=0, // Ident
-        LVAL_IDX, // LVal "[" Exp "]"
+        LVAL_IDX, // LVal ["[" Exp "]"]
     }flag;
     std::string ident;
-    std::unique_ptr<BaseExprAST> idx;
+    std::vector<std::unique_ptr<BaseExprAST>> idx_lst;
 
     void Dump() const override;
     std::string koopa_ir() const override;
     int getVal() const override{
         if(flag==IDENT)
             return symbol_tables[ident_floor(ident)][ident].val;
-        else
-            return symbol_tables[ident_floor(ident)][ident].array[idx->getVal()];
+        else{
+            int idx=0;
+            std::vector<int> dim_len=symbol_tables[ident_floor(ident)][ident].dim_len;
+            for(int i=idx_lst.size()-1;i>=0;i--){
+                idx += idx_lst[i]->getVal();
+                if(i!=idx_lst.size()-1)
+                    idx *= dim_len[i+1];
+            }
+            return symbol_tables[ident_floor(ident)][ident].array[idx];
+        }
     }
 };
 
@@ -427,18 +435,26 @@ class LeftLValAST: public BaseExprAST{
 public:
     enum Flag{
         IDENT=0, // Ident
-        LVAL_IDX, // LVal "[" Exp "]"
+        LVAL_IDX, // LVal ["[" Exp "]"]
     }flag;
     std::string ident;
-    std::unique_ptr<BaseExprAST> idx;
+    std::vector<std::unique_ptr<BaseExprAST>> idx_lst;
 
     void Dump() const override;
     std::string koopa_ir() const override;
     int getVal() const override{
         if(flag==IDENT)
             return symbol_tables[ident_floor(ident)][ident].val;
-        else
-            return symbol_tables[ident_floor(ident)][ident].array[idx->getVal()];
+        else{
+            int idx=0;
+            std::vector<int> dim_len=symbol_tables[ident_floor(ident)][ident].dim_len;
+            for(int i=idx_lst.size()-1;i>=0;i--){
+                idx += idx_lst[i]->getVal();
+                if(i!=idx_lst.size()-1)
+                    idx *= dim_len[i+1];
+            }
+            return symbol_tables[ident_floor(ident)][ident].array[idx];
+        }
     }
 };
 

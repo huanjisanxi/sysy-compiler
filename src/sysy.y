@@ -43,7 +43,8 @@ using namespace std;
 %type <str_val> BType
 %type <int_val> Number
 %type <vec_val> BlockItemList ConstDefList VarDefList UnitList FuncParamList CallParamList 
-%type <expr_vec_val> ConstInitValList VarInitValList IndexList
+%type <expr_vec_val> VarInitValList IndexList
+/* %type <expr_vec_val> ConstInitValList */
 
 %%
 
@@ -260,11 +261,13 @@ LeftLVal
     lval->flag = LeftLValAST::IDENT;
     $$ = lval;
   }
-  | IDENT '[' Expr ']' {
+  | IDENT IndexList {
     auto lval = new LeftLValAST();
     lval->ident = *unique_ptr<string>($1);
-    lval->idx = unique_ptr<BaseExprAST>($3);
     lval->flag = LeftLValAST::LVAL_IDX;
+    vector<unique_ptr<BaseExprAST>> *vec = ($2);
+    for(auto it = vec->begin(); it!= vec->end(); it++)
+      lval->idx_lst.push_back(move(*it));
     $$ = lval;
   }
   ;
@@ -556,11 +559,13 @@ LVal
     lval->flag = LValAST::IDENT;
     $$ = lval;
   }
-  | IDENT '[' Expr ']' {
+  | IDENT IndexList {
     auto lval = new LValAST();
     lval->ident = *unique_ptr<string>($1);
-    lval->idx = unique_ptr<BaseExprAST>($3);
     lval->flag = LValAST::LVAL_IDX;
+    vector<unique_ptr<BaseExprAST>> *vec = ($2);
+    for(auto it = vec->begin(); it != vec->end(); it++)
+      lval->idx_lst.push_back(move(*it));
     $$ = lval;
   }
   ;
@@ -637,22 +642,9 @@ ConstInitVal
     const_init_val->val = $1->val;
     $$ = const_init_val;
   }
-  /* | '{' '}' {
-    auto const_init_val = new ConstInitValAST();
-    const_init_val->flag = ConstInitValAST::ARRAY;
-    $$ = const_init_val;
-  }
-  | '{' ConstInitValList '}' {
-    auto const_init_val = new ConstInitValAST();
-    const_init_val->flag = ConstInitValAST::ARRAY;
-    vector<unique_ptr<BaseExprAST>> *vec = ($2);
-    for (auto it = vec->begin(); it!= vec->end(); it++)
-      const_init_val->const_expr_list.push_back(move(*it));
-    $$ = const_init_val;
-  } */
   ;
 
-ConstInitValList
+/* ConstInitValList
   : ConstInitVal {
     vector<unique_ptr<BaseExprAST>> *vec = new vector<unique_ptr<BaseExprAST>>;
     vec->push_back(unique_ptr<BaseExprAST>($1));
@@ -663,7 +655,7 @@ ConstInitValList
     vec->push_back(unique_ptr<BaseExprAST>($3));
     $$ = vec;
   }
-  ;
+  ; */
 
 ConstExpr 
   : Expr {
