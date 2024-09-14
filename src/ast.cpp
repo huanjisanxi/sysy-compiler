@@ -261,7 +261,6 @@ std::string FuncDefAST::koopa_ir() const {
         }
     }
     str += "}\n";
-    test_val=symbol_tables[1]["a"].val;
     symbol_tables.pop_back();
     block_num--;
     str+="\n";
@@ -339,7 +338,6 @@ std::string StmtAST::koopa_ir() const {
         auto p=(LeftLValAST*)lval.get();
         if(p->flag==LeftLValAST::IDENT){
             str += "\tstore " + val + ", %" + ident + "_" + id + "\n";
-            // symbol_tables[ident_floor(ident)][ident].val = expr->getVal();
         }
         else{
             str += "\tstore " + val + ", " + ident + "\n";
@@ -353,7 +351,6 @@ std::string StmtAST::koopa_ir() const {
             while(symbol_tables[ident_floor(p->ident)][p->ident].array.size()<=idx){
                 symbol_tables[ident_floor(p->ident)][p->ident].array.push_back(0);
             }
-            // symbol_tables[ident_floor(p->ident)][p->ident].array[idx] = expr->getVal();
         }
     }
     else if(flag == BLOCK){

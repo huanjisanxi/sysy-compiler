@@ -426,12 +426,17 @@ public:
         else{
             int idx=0;
             std::vector<int> dim_len=symbol_tables[ident_floor(ident)][ident].dim_len;
-            for(int i=idx_lst.size()-1;i>=0;i--){
-                if(i!=idx_lst.size()-1)
-                    idx *= dim_len[i+1];
-                idx += idx_lst[i]->getVal();
+            if(dim_len[0]!=-1){
+                for(int i=idx_lst.size()-1;i>=0;i--){
+                    if(i!=idx_lst.size()-1)
+                        idx *= dim_len[i+1];
+                    idx += idx_lst[i]->getVal();
+                }
+                return symbol_tables[ident_floor(ident)][ident].array[idx];
             }
-            return symbol_tables[ident_floor(ident)][ident].array[idx];
+            else{
+                return 0;
+            }
         }
     }
 };
@@ -453,13 +458,17 @@ public:
         else{
             int idx=0;
             std::vector<int> dim_len=symbol_tables[ident_floor(ident)][ident].dim_len;
-            for(int i=idx_lst.size()-1;i>=0;i--){
-                if(i!=idx_lst.size()-1)
-                    idx *= dim_len[i+1];
-                idx += idx_lst[i]->getVal();
+            if(dim_len[0]!=-1){
+                for(int i=idx_lst.size()-1;i>=0;i--){
+                    if(i!=idx_lst.size()-1)
+                        idx *= dim_len[i+1];
+                    idx += idx_lst[i]->getVal();
+                }
+                return symbol_tables[ident_floor(ident)][ident].array[idx];
             }
-            return symbol_tables[ident_floor(ident)][ident].array[idx];
-            // return 222;
+            else{
+                return 0;
+            }
         }
     }
 };

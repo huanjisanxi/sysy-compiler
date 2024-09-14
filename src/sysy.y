@@ -757,12 +757,12 @@ VarDef
   ;
 
 IndexList
-  : '[' ConstExpr ']' {
+  : '[' Expr ']' {
     vector<unique_ptr<BaseExprAST>> *vec = new vector<unique_ptr<BaseExprAST>>;
     vec->push_back(unique_ptr<BaseExprAST>($2));
     $$ = vec;
   }
-  | IndexList '[' ConstExpr ']' {
+  | IndexList '[' Expr ']' {
     vector<unique_ptr<BaseExprAST>> *vec = ($1);
     vec->push_back(unique_ptr<BaseExprAST>($3));
     $$ = vec;
