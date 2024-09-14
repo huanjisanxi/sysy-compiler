@@ -63,12 +63,6 @@ int main(int argc, const char *argv[]) {
   else if(strcmp(mode, "-test") == 0){
     ast->koopa_ir();
     std::cout<<str<<std::endl;
-    std::cout<<"test_val = "<<test_val<<std::endl;
-    cout<<"symbol_table size = "<<symbol_tables[0].size()<<endl;
-    for(auto it = symbol_tables[0].begin(); it!= symbol_tables[0].end(); it++){
-      cout<<it->first<<" : "<<it->second.val<<"  "<<it->second.type<<"  "<<it->second.is_const<<endl;
-      std::cout<<it->second.array.size();
-    }
     fclose(stdout);
   }
   else if(strcmp(mode, "-koopa") == 0){

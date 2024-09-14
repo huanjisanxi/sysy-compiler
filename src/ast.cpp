@@ -230,9 +230,23 @@ std::string FuncDefAST::koopa_ir() const {
     std::string block_name = "%entry";
     str += block_name+":\n";
     for(auto ident : ident_list){
-        symbol_tables[block_num][ident] = MyVar("int", 0, false, ident_cnt++, true);
-        str+="\t%"+ident+"_"+std::to_string(ident_id(ident))+" = alloc i32\n";
-        str+="\tstore @"+ident+", %"+ident+"_"+std::to_string(ident_id(ident))+"\n";
+        if(symbol_tables[block_num][ident].type=="int"){
+            str+="\t%"+ident+"_"+std::to_string(ident_id(ident))+" = alloc i32\n";
+            str+="\tstore @"+ident+", %"+ident+"_"+std::to_string(ident_id(ident))+"\n";
+        }
+        else{
+            str+="\t%"+ident+"_"+std::to_string(ident_id(ident))+" = alloc *";
+            for(int i=0;i<symbol_tables[block_num][ident].dim_len.size();++i){
+                if(symbol_tables[block_num][ident].dim_len[i]!=-1)
+                    str+="[";
+            }
+            str+="i32";
+            for(int i=1;i<symbol_tables[block_num][ident].dim_len.size();++i){
+                str+=", "+std::to_string(symbol_tables[block_num][ident].dim_len[i])+"]";
+            }
+            str += "\n";
+            str+="\tstore @"+ident+", %"+ident+"_"+std::to_string(ident_id(ident))+"\n";
+        }
     }
     now_block = block_name;
     block_end[now_block] = false;
@@ -247,6 +261,7 @@ std::string FuncDefAST::koopa_ir() const {
         }
     }
     str += "}\n";
+    test_val=symbol_tables[1]["a"].val;
     symbol_tables.pop_back();
     block_num--;
     str+="\n";
@@ -255,11 +270,25 @@ std::string FuncDefAST::koopa_ir() const {
 
 std::string FuncParamAST::koopa_ir() const{
     str+="@"+ident;
-    if(btype=="int")
-        str += ": i32";
-    else if(btype=="void")
-        ;
-    return ident;
+    std::string ret = ident;
+    if(flag==INT){
+        symbol_tables[block_num][ident] = MyVar("int", 0, false, ident_cnt++, true);
+        str+=": i32";
+    }
+    else if(flag==ARRAY){
+        symbol_tables[block_num][ident] = MyVar("array", 0, true, ident_cnt++, true);
+        symbol_tables[block_num][ident].dim_len.push_back(-1);
+        str+=": *";
+        for(int i=0;i<more_array_size.size();++i){
+            str+="[";
+        }
+        str += "i32";
+        for(int i=0;i<more_array_size.size();++i){
+            str+=", "+std::to_string(more_array_size[i]->getVal())+"]";
+            symbol_tables[block_num][ident].dim_len.push_back(more_array_size[i]->getVal());
+        }
+    }
+    return ret;
 }
 
 std::string FuncTypeAST::koopa_ir() const {
@@ -274,6 +303,7 @@ std::string BlockAST::koopa_ir() const {
     for (auto& item: block_item_list){
         item->koopa_ir();
     }
+    test_val=symbol_tables[1]["sum"].val;
     return "";
 }
 
@@ -298,17 +328,33 @@ std::string StmtAST::koopa_ir() const {
         str += "\tret " + res + "\n";
         block_end[now_block] = true;
         has_ret[now_func]=true;
+        if(now_block.find("else")!=std::string::npos||now_block.find("then")!=std::string::npos){
+            has_ret[now_func]=false;
+        }
     }
     else if (flag == ASSIGN){
         std::string ident = lval->koopa_ir();
         std::string id = std::to_string(ident_id(ident));
         std::string val = expr->koopa_ir();
-        symbol_tables[ident_floor(ident)][ident].val = expr->getVal();
         auto p=(LeftLValAST*)lval.get();
-        if(p->flag==LeftLValAST::IDENT)
+        if(p->flag==LeftLValAST::IDENT){
             str += "\tstore " + val + ", %" + ident + "_" + id + "\n";
-        else
+            // symbol_tables[ident_floor(ident)][ident].val = expr->getVal();
+        }
+        else{
             str += "\tstore " + val + ", " + ident + "\n";
+            int idx = 0;
+            std::vector<int> dim_len = symbol_tables[ident_floor(p->ident)][p->ident].dim_len;
+            for(int i=p->idx_lst.size()-1;i>=0;--i){
+                if(i!=p->idx_lst.size()-1)
+                    idx*=dim_len[i+1];
+                idx+=p->idx_lst[i]->getVal();
+            }
+            while(symbol_tables[ident_floor(p->ident)][p->ident].array.size()<=idx){
+                symbol_tables[ident_floor(p->ident)][p->ident].array.push_back(0);
+            }
+            // symbol_tables[ident_floor(p->ident)][p->ident].array[idx] = expr->getVal();
+        }
     }
     else if(flag == BLOCK){
         std::unordered_map<std::string, MyVar> next_table;
@@ -325,6 +371,9 @@ std::string StmtAST::koopa_ir() const {
         str += "\tret\n";
         block_end[now_block] = true;
         has_ret[now_func]=true;
+        if(now_block.find("else")!=std::string::npos||now_block.find("then")!=std::string::npos){
+            has_ret[now_func]=false;
+        }
     }
     else if(flag==IF){
         std::string val = cond->koopa_ir();
@@ -668,9 +717,15 @@ std::string RelExprAST::koopa_ir() const {
 
 std::string LValAST::koopa_ir() const {
     if(flag==IDENT){
-        if(symbol_tables[ident_floor(ident)][ident].array.size()){
+        if(symbol_tables[ident_floor(ident)][ident].dim_len.size()){
             std::string ret = "%" + std::to_string(cnt++);
-            str += "\t" + ret + " = getelemptr %" + ident + "_" + std::to_string(ident_id(ident)) + ", 0" + "\n";
+            if(symbol_tables[ident_floor(ident)][ident].dim_len[0]!=-1)
+                str += "\t" + ret + " = getelemptr %" + ident + "_" + std::to_string(ident_id(ident)) + ", 0" + "\n";
+            else{
+                std::string tmp = "%" + std::to_string(cnt++);
+                str += "\t" + tmp + " = load %" + ident + "_" + std::to_string(ident_id(ident)) + "\n";
+                str += "\t" + ret + " = getptr " + tmp + ", 0\n";
+            }
             return ret;
         }
         else{
@@ -687,14 +742,27 @@ std::string LValAST::koopa_ir() const {
     else if(flag==LVAL_IDX){
         std::string base_ptr = "%" + ident + "_" + std::to_string(ident_id(ident));
         std::string ret = "";
-        for(auto& idx:idx_lst){
-            std::string idx_ret = idx->koopa_ir();
+        for(int i=0;i<idx_lst.size();i++){
+            std::string idx_ret = idx_lst[i]->koopa_ir();
             ret = "%ptr" + std::to_string(ptr_cnt++);
-            str += "\t" + ret + " = getelemptr " + base_ptr + ", " + idx_ret + "\n";
+            if(symbol_tables[ident_floor(ident)][ident].dim_len[i]!=-1)
+                str += "\t" + ret + " = getelemptr " + base_ptr + ", " + idx_ret + "\n";
+            else{
+                std::string tmp = "%" + std::to_string(cnt++);
+                str += "\t" + tmp + " = load " + base_ptr + "\n";
+                str += "\t" + ret + " = getptr " + tmp + ", " + idx_ret + "\n";
+            }
             base_ptr = ret;
         }
-        ret = "%" + std::to_string(cnt++);
-        str += "\t" + ret + " = load " + base_ptr + "\n";
+        if(symbol_tables[ident_floor(ident)][ident].dim_len.size()!=idx_lst.size()){
+            std::string tmp = "%" + std::to_string(cnt++);
+            str += "\t" + tmp + " = getelemptr " + ret + ", 0\n";
+            ret = tmp;
+        }
+        else{
+            ret = "%" + std::to_string(cnt++);
+            str += "\t" + ret + " = load " + base_ptr + "\n";
+        }
         return ret;
     }
     return "";
@@ -706,10 +774,16 @@ std::string LeftLValAST::koopa_ir() const {
     else{
         std::string base_ptr = "%" + ident + "_" + std::to_string(ident_id(ident));
         std::string ret = "";
-        for(auto& idx:idx_lst){
-            std::string idx_ret = idx->koopa_ir();
+        for(int i=0;i<idx_lst.size();i++){
+            std::string idx_ret = idx_lst[i]->koopa_ir();
             ret = "%ptr" + std::to_string(ptr_cnt++);
-            str += "\t" + ret + " = getelemptr " + base_ptr + ", " + idx_ret + "\n";
+            if(symbol_tables[ident_floor(ident)][ident].dim_len[i]!=-1)
+                str += "\t" + ret + " = getelemptr " + base_ptr + ", " + idx_ret + "\n";
+            else{
+                std::string tmp = "%" + std::to_string(cnt++);
+                str += "\t" + tmp + " = load " + base_ptr + "\n";
+                str += "\t" + ret + " = getptr " + tmp + ", " + idx_ret + "\n";
+            }
             base_ptr = ret;
         }
         return ret;

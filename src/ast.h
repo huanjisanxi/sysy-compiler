@@ -96,6 +96,7 @@ public:
     }flag;
     std::string btype;
     std::string ident;
+    std::vector<std::unique_ptr<BaseExprAST>> more_array_size; // except first dim
 
     void Dump() const override;
     std::string koopa_ir() const override;
@@ -426,9 +427,9 @@ public:
             int idx=0;
             std::vector<int> dim_len=symbol_tables[ident_floor(ident)][ident].dim_len;
             for(int i=idx_lst.size()-1;i>=0;i--){
-                idx += idx_lst[i]->getVal();
                 if(i!=idx_lst.size()-1)
                     idx *= dim_len[i+1];
+                idx += idx_lst[i]->getVal();
             }
             return symbol_tables[ident_floor(ident)][ident].array[idx];
         }
@@ -453,11 +454,12 @@ public:
             int idx=0;
             std::vector<int> dim_len=symbol_tables[ident_floor(ident)][ident].dim_len;
             for(int i=idx_lst.size()-1;i>=0;i--){
-                idx += idx_lst[i]->getVal();
                 if(i!=idx_lst.size()-1)
                     idx *= dim_len[i+1];
+                idx += idx_lst[i]->getVal();
             }
             return symbol_tables[ident_floor(ident)][ident].array[idx];
+            // return 222;
         }
     }
 };

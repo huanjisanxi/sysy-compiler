@@ -10,7 +10,7 @@ public:
     int id;
     bool no_init;
     std::vector<int> array;
-    std::vector<int> dim_len;
+    std::vector<int> dim_len; // if first dim is -1 then it is a pointer
 
     MyVar(){}
     MyVar(std::string _type, int _val, bool _is_const, int _id, bool _no_init=false)

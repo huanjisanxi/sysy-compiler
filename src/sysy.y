@@ -43,7 +43,7 @@ using namespace std;
 %type <str_val> BType
 %type <int_val> Number
 %type <vec_val> BlockItemList ConstDefList VarDefList UnitList FuncParamList CallParamList 
-%type <expr_vec_val> VarInitValList IndexList
+%type <expr_vec_val> VarInitValList IndexList MoreArraySize
 /* %type <expr_vec_val> ConstInitValList */
 
 %%
@@ -143,8 +143,37 @@ FuncParam
     auto func_param = new FuncParamAST();
     func_param->btype = "int";
     func_param->ident = *unique_ptr<string>($2);
+    func_param->flag = FuncParamAST::INT;
     $$ = func_param;
   }
+  | BType IDENT '[' ']' MoreArraySize{
+    auto func_param = new FuncParamAST();
+    func_param->btype = "int";
+    func_param->ident = *unique_ptr<string>($2);
+    func_param->flag = FuncParamAST::ARRAY;
+    vector<unique_ptr<BaseExprAST>> *vec = ($5);
+    for(auto it = vec->begin(); it != vec->end(); it++)
+      func_param->more_array_size.push_back(move(*it));
+    $$ = func_param;
+  }
+  ;
+
+MoreArraySize
+  : {
+    vector<unique_ptr<BaseExprAST>> *vec = new vector<unique_ptr<BaseExprAST>>;
+    $$ = vec;
+  }
+  | ConstExpr {
+    vector<unique_ptr<BaseExprAST>> *vec = new vector<unique_ptr<BaseExprAST>>;
+    vec->push_back(unique_ptr<BaseExprAST>($1));
+    $$ = vec;
+  }
+  | MoreArraySize '[' ConstExpr ']' {
+    vector<unique_ptr<BaseExprAST>> *vec = ($1);
+    vec->push_back(unique_ptr<BaseExprAST>($3));
+    $$ = vec;
+  }
+  ;
 
 Block
   : '{' BlockItemList '}' {
