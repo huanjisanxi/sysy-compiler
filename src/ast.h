@@ -291,10 +291,16 @@ public:
         else if(flag==MUL_UNARY){
             if(op=="*")
                 return mul_expr->getVal()*unary_expr->getVal();
-            else if(op=="/")
+            else if(op=="/"){
+                if(unary_expr->getVal()==0)
+                    return 1;
                 return mul_expr->getVal()/unary_expr->getVal();
-            else if(op=="%")
+            }
+            else if(op=="%"){
+                if(unary_expr->getVal()==0)
+                    return 1;
                 return mul_expr->getVal()%unary_expr->getVal();
+            }
         }
         return 0;
     }

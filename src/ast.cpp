@@ -8,11 +8,8 @@ void init2array(BaseExprAST** start, int* len_start, int* len_end, const VarInit
 std::string array2Aggregate(BaseExprAST** init_array, int* idx, int* dim, int* dim_end);
 std::string array2ptr(BaseExprAST** init_array, int* idx, std::string base_ptr, int* dim, int* dim_end);
 
-// for Dump
-
 void CompUnitAST::Dump() const  {
     std::cout << "CompUnitAST { ";
-    // func_def->Dump();
     std::cout << " }";
 }
 
@@ -98,7 +95,6 @@ void PrimaryExprAST::Dump() const {
             expr->Dump();
             break;
         case LVAL:
-            //TODO
             break;
     }
     std::cout << " }";
@@ -184,7 +180,6 @@ void VarDeclAST::Dump() const {
 }
 
 void VarDefAST::Dump() const {
-    //TODO
     var_init_val->Dump();
 }
 
@@ -192,8 +187,6 @@ void VarDefAST::Dump() const {
 void VarInitValAST::Dump() const {
     expr->Dump();
 }
-
-// for koopa_ir
 
 std::string CompUnitAST::koopa_ir() const {
     str+="decl @getint(): i32\ndecl @getch(): i32\ndecl @getarray(*i32): i32\ndecl @putint(i32)\ndecl @putch(i32)\ndecl @putarray(i32, *i32)\ndecl @starttime()\ndecl @stoptime()\n\n";
