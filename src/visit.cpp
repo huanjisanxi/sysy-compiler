@@ -51,7 +51,7 @@ void Visit(const koopa_raw_function_t &func) {
     auto bb = reinterpret_cast<koopa_raw_basic_block_t>(func->bbs.buffer[i]);
     for(size_t j=0;j<bb->insts.len;j++){
       auto inst = reinterpret_cast<koopa_raw_value_t>(bb->insts.buffer[j]);
-      if(inst->kind.tag == KOOPA_RVT_ALLOC||inst->kind.tag == KOOPA_RVT_BINARY||inst->kind.tag == KOOPA_RVT_LOAD){
+      if(inst->kind.tag == KOOPA_RVT_ALLOC||inst->kind.tag == KOOPA_RVT_BINARY||inst->kind.tag == KOOPA_RVT_LOAD||inst->kind.tag == KOOPA_RVT_BRANCH){
         val_stack_cnt += 4;
       }
     }
@@ -71,6 +71,7 @@ void Visit(const koopa_raw_basic_block_t &bb) {
   // 执行一些其他的必要操作
   // ...
   // 访问所有指令
+  std::cout<<bb->name+1<<":\n";
   Visit(bb->insts);
 }
 
@@ -99,6 +100,12 @@ void Visit(const koopa_raw_value_t &value) {
     case KOOPA_RVT_LOAD:
       Visit(kind.data.load, value);
       break;
+    case KOOPA_RVT_BRANCH:
+      Visit(kind.data.branch);
+      break;
+    case KOOPA_RVT_JUMP:
+      Visit(kind.data.jump);
+      break;
     default:
       std::cout<<kind.tag<<std::endl;
       // 其他类型暂时遇不到
@@ -114,7 +121,7 @@ void Visit(const koopa_raw_return_t& ret) {
       std::cout << "\n";
     }
     else{
-      std::cout << "\tlw a0, "<<val_stack_cnt-4<<"(sp)\n";
+      std::cout << "\tlw a0, "<<val_stack[ret.value]<<"(sp)\n";
     }
   }
   std::cout<<"\taddi sp, sp, "<<val_stack_cnt<<"\n";
@@ -178,7 +185,6 @@ void Visit(const koopa_raw_binary_t& binary, const koopa_raw_value_t& value){
       std::cout<<"\tseqz "<<"t0, "<<"t0\n";
       break;
     default:
-      std::cout<<binary.op<<std::endl;
       assert(false);
       break;
   }
@@ -214,4 +220,19 @@ void Visit(const koopa_raw_store_t& store, const koopa_raw_value_t& value){
     std::cout<<"\tsw "<<"t0, "<<val_stack_idx<<"(sp)\n";
     val_stack_idx += 4;
   }
+}
+
+void Visit(const koopa_raw_jump_t& jump){
+  std::cout<<"\tj "<<jump.target->name+1<<"\n";
+}
+
+void Visit(const koopa_raw_branch_t& branch){
+  if(branch.cond->kind.tag == KOOPA_RVT_INTEGER){
+    std::cout<<"\tli t0, "<<branch.cond->kind.data.integer.value<<"\n";
+  }
+  else{
+    std::cout<<"\tlw t0, "<<val_stack[branch.cond]<<"(sp)\n";
+  }
+  std::cout<<"\tbnez "<<"t0, "<<branch.true_bb->name+1<<"\n";
+  std::cout<<"\tj "<<branch.false_bb->name+1<<"\n";
 }
