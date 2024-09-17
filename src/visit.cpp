@@ -1,4 +1,9 @@
 #include "visit.h"
+#include <unordered_map>
+
+int val_stack_cnt = 0;
+int val_stack_idx = 0;
+std::unordered_map<koopa_raw_value_t, int> val_stack;
 
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program) {
@@ -40,9 +45,24 @@ void Visit(const koopa_raw_function_t &func) {
   // 执行一些其他的必要操作
   // ...
   // 访问所有基本块
-  std::cout << "\t.text\n";
-  std::cout << "\t.globl " << func->name + 1 << "\n";
-  std::cout << func->name + 1 << ":\n";
+  val_stack_cnt = 0;
+  val_stack_idx = 0;
+  for(size_t i=0;i<func->bbs.len;i++){
+    auto bb = reinterpret_cast<koopa_raw_basic_block_t>(func->bbs.buffer[i]);
+    for(size_t j=0;j<bb->insts.len;j++){
+      auto inst = reinterpret_cast<koopa_raw_value_t>(bb->insts.buffer[j]);
+      if(inst->kind.tag == KOOPA_RVT_ALLOC||inst->kind.tag == KOOPA_RVT_BINARY){
+        val_stack_cnt += 4;
+      }
+    }
+  }
+  val_stack.clear();
+  if(std::string(func->name)=="@main"){
+    std::cout << "\t.text\n";
+    std::cout << "\t.globl " << func->name + 1 << "\n";
+    std::cout << func->name + 1 << ":\n";
+    std::cout << "\taddi sp, sp, -"<<val_stack_cnt<<"\n";
+  }
   Visit(func->bbs);
 }
 
@@ -67,6 +87,10 @@ void Visit(const koopa_raw_value_t &value) {
       // 访问 integer 指令
       Visit(kind.data.integer);
       break;
+    case KOOPA_RVT_BINARY:
+      // 访问 binary 指令
+      Visit(kind.data.binary, value);
+      break;
     default:
       // 其他类型暂时遇不到
       assert(false);
@@ -80,11 +104,76 @@ void Visit(const koopa_raw_return_t& ret) {
       Visit(ret.value->kind.data.integer);
       std::cout << "\n";
     }
+    else{
+      std::cout << "\tlw a0, "<<val_stack_cnt-4<<"(sp)\n";
+    }
   }
-
+  std::cout<<"\taddi sp, sp, "<<val_stack_cnt<<"\n";
   std::cout << "\tret\n\n";
 }
 
 void Visit(const koopa_raw_integer_t& integer) {
   std::cout << integer.value;
+}
+
+void Visit(const koopa_raw_binary_t& binary, const koopa_raw_value_t& value){
+  koopa_raw_value_t l = binary.lhs, r = binary.rhs;
+  if(l->kind.tag == KOOPA_RVT_INTEGER){
+    std::cout<<"\tli "<<"t0, "<<l->kind.data.integer.value<<"\n";
+  }
+  else{
+    std::cout<<"\tlw t0, "<<val_stack[l]<<"(sp)\n";
+  }
+  if(r->kind.tag == KOOPA_RVT_INTEGER){
+    std::cout<<"\tli "<<"t1, "<<r->kind.data.integer.value<<"\n";
+  }
+  else{
+    std::cout<<"\tlw t1, "<<val_stack[r]<<"(sp)\n";
+  }
+  switch(binary.op){
+    case KOOPA_RBO_ADD:
+      std::cout<<"\tadd "<<"t0, "<<"t0, "<<"t1\n";
+      break;
+    case KOOPA_RBO_SUB:
+      std::cout<<"\tsub "<<"t0, "<<"t0, "<<"t1\n";
+      break;
+    case KOOPA_RBO_EQ:
+      std::cout<<"\txor "<<"t0, "<<"t0, "<<"t1\n";
+      std::cout<<"\tseqz "<<"t0, "<<"t0\n";
+      break;
+    case KOOPA_RBO_NOT_EQ:
+      std::cout<<"\txor "<<"t0, "<<"t0, "<<"t1\n";
+      std::cout<<"\tsnez "<<"t0, "<<"t0\n";
+      break;
+    case KOOPA_RBO_MUL:
+      std::cout<<"\tmul "<<"t0, "<<"t0, "<<"t1\n";
+      break;
+    case KOOPA_RBO_DIV:
+      std::cout<<"\tdiv "<<"t0, "<<"t0, "<<"t1\n";
+      break;
+    case KOOPA_RBO_MOD:
+      std::cout<<"\trem "<<"t0, "<<"t0, "<<"t1\n";
+      break;
+    case KOOPA_RBO_LT:
+      std::cout<<"\tslt "<<"t0, "<<"t0, "<<"t1\n";
+      break;
+    case KOOPA_RBO_GT:
+      std::cout<<"\tslt "<<"t0, "<<"t1, "<<"t0\n";
+      break;
+    case KOOPA_RBO_LE:
+      std::cout<<"\tsgt "<<"t0, "<<"t0, "<<"t1\n";
+      std::cout<<"\tseqz "<<"t0, "<<"t0\n";
+      break;
+    case KOOPA_RBO_GE:
+      std::cout<<"\tslt "<<"t0, "<<"t0, "<<"t1\n";
+      std::cout<<"\tseqz "<<"t0, "<<"t0\n";
+      break;
+    default:
+      std::cout<<binary.op<<std::endl;
+      // assert(false);
+      break;
+  }
+  val_stack[value] = val_stack_idx;
+  std::cout<<"\tsw "<<"t0, "<<val_stack_idx<<"(sp)\n";
+  val_stack_idx += 4;
 }
