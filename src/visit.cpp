@@ -51,7 +51,7 @@ void Visit(const koopa_raw_function_t &func) {
     auto bb = reinterpret_cast<koopa_raw_basic_block_t>(func->bbs.buffer[i]);
     for(size_t j=0;j<bb->insts.len;j++){
       auto inst = reinterpret_cast<koopa_raw_value_t>(bb->insts.buffer[j]);
-      if(inst->kind.tag == KOOPA_RVT_ALLOC||inst->kind.tag == KOOPA_RVT_BINARY){
+      if(inst->kind.tag == KOOPA_RVT_ALLOC||inst->kind.tag == KOOPA_RVT_BINARY||inst->kind.tag == KOOPA_RVT_LOAD){
         val_stack_cnt += 4;
       }
     }
@@ -91,9 +91,18 @@ void Visit(const koopa_raw_value_t &value) {
       // 访问 binary 指令
       Visit(kind.data.binary, value);
       break;
+    case KOOPA_RVT_ALLOC:
+      break;
+    case KOOPA_RVT_STORE:
+      Visit(kind.data.store, value);
+      break;
+    case KOOPA_RVT_LOAD:
+      Visit(kind.data.load, value);
+      break;
     default:
+      std::cout<<kind.tag<<std::endl;
       // 其他类型暂时遇不到
-      assert(false);
+      // assert(false);
   }
 }
 
@@ -170,10 +179,39 @@ void Visit(const koopa_raw_binary_t& binary, const koopa_raw_value_t& value){
       break;
     default:
       std::cout<<binary.op<<std::endl;
-      // assert(false);
+      assert(false);
       break;
   }
   val_stack[value] = val_stack_idx;
   std::cout<<"\tsw "<<"t0, "<<val_stack_idx<<"(sp)\n";
   val_stack_idx += 4;
+}
+
+void Visit(const koopa_raw_load_t& load, const koopa_raw_value_t& value){
+  std::cout<<"\tlw t0, "<<val_stack[load.src]<<"(sp)\n";
+  if(val_stack.find(value)!=val_stack.end()){
+    std::cout<<"\tsw "<<"t0, "<<val_stack[value]<<"(sp)\n";
+  }
+  else{
+    val_stack[value] = val_stack_idx;
+    std::cout<<"\tsw "<<"t0, "<<val_stack_idx<<"(sp)\n";
+    val_stack_idx += 4;
+  }
+}
+
+void Visit(const koopa_raw_store_t& store, const koopa_raw_value_t& value){
+  if(store.value->kind.tag == KOOPA_RVT_INTEGER){
+    std::cout<<"\tli t0, "<<store.value->kind.data.integer.value<<"\n";
+  }
+  else{
+    std::cout<<"\tlw t0, "<<val_stack[store.value]<<"(sp)\n";
+  }
+  if(val_stack.find(store.dest)!=val_stack.end()){
+    std::cout<<"\tsw "<<"t0, "<<val_stack[store.dest]<<"(sp)\n";
+  }
+  else{
+    val_stack[store.dest] = val_stack_idx;
+    std::cout<<"\tsw "<<"t0, "<<val_stack_idx<<"(sp)\n";
+    val_stack_idx += 4;
+  }
 }
