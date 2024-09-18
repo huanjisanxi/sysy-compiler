@@ -38,6 +38,8 @@ int res_cnt=0;
 int ptr_cnt=0;
 int test_val ;
 
+std::string riscv_code="";
+
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
   // compiler 模式 输入文件 -o 输出文件
@@ -84,6 +86,8 @@ int main(int argc, const char *argv[]) {
     // ...
     Visit(raw);
 
+    std::cout<<riscv_code<<std::endl;
+
     // 处理完成, 释放 raw program builder 占用的内存
     // 注意, raw program 中所有的指针指向的内存均为 raw program builder 的内存
     // 所以不要在 raw program 处理完毕之前释放 builder
@@ -116,6 +120,7 @@ int main(int argc, const char *argv[]) {
     // 处理 raw program
     // ...
     Visit(raw);
+    std::cout<<riscv_code<<std::endl;
 
     // 处理完成, 释放 raw program builder 占用的内存
     // 注意, raw program 中所有的指针指向的内存均为 raw program builder 的内存
