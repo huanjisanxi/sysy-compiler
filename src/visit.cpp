@@ -454,24 +454,24 @@ void Visit(const koopa_raw_global_alloc_t& global_alloc, const koopa_raw_value_t
 }
 
 void Visit(const koopa_raw_get_elem_ptr_t& get_elem_ptr, const koopa_raw_value_t& value){
-  if(val_stack.find(get_elem_ptr.src)==val_stack.end()){
+  if(val_stack.find(get_elem_ptr.src)==val_stack.end()&&get_elem_ptr.src->kind.tag!= KOOPA_RVT_GLOBAL_ALLOC){
     val_stack[get_elem_ptr.src] = val_stack_idx;
     val_stack_idx += getTypeSize(get_elem_ptr.src->ty->data.pointer.base);
   }
-  // if(idx_imm(val_stack[get_elem_ptr.src]))
-  //   riscv_code += addi("t0", "sp", val_stack[get_elem_ptr.src]);
-  // else{
-  //   riscv_code += li("t0", val_stack[get_elem_ptr.src]);
-  //   riscv_code += add("t0", "sp", "t0");
-  // }
   if(get_elem_ptr.src->kind.tag == KOOPA_RVT_ALLOC)
     riscv_code += addi("t0", "sp", val_stack[get_elem_ptr.src]);
   else if(get_elem_ptr.src->kind.tag == KOOPA_RVT_GET_ELEM_PTR){
     riscv_code += lw("t0", val_stack[get_elem_ptr.src],"sp");
-    // riscv_code += addi("t0", "sp", val_stack[get_elem_ptr.src]);
   }
-  riscv_code += li("t1", get_elem_ptr.index->kind.data.integer.value);
-  riscv_code += li("t2", 4);
+  else if(get_elem_ptr.src->kind.tag == KOOPA_RVT_GLOBAL_ALLOC){
+    riscv_code += la("t0", get_elem_ptr.src->name+1);
+  }
+  if(get_elem_ptr.index->kind.tag == KOOPA_RVT_INTEGER)
+    riscv_code += li("t1", get_elem_ptr.index->kind.data.integer.value);
+  else{
+    riscv_code += lw("t1", val_stack[get_elem_ptr.index],"sp");
+  }
+  riscv_code += li("t2", getTypeSize(get_elem_ptr.src->ty->data.pointer.base->data.array.base));
   riscv_code += mul("t1", "t1", "t2");
   riscv_code += add("t0", "t0", "t1");
   if(val_stack.find(value)==val_stack.end()){
