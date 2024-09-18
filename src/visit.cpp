@@ -187,7 +187,7 @@ void Visit(const koopa_raw_basic_block_t &bb) {
 // 访问指令
 void Visit(const koopa_raw_value_t &value) {
   // 根据指令类型判断后续需要如何访问
-  riscv_code += "\n";
+  // riscv_code+="test\n";
   const auto &kind = value->kind;
   switch (kind.tag) {
     case KOOPA_RVT_RETURN:
@@ -227,6 +227,7 @@ void Visit(const koopa_raw_value_t &value) {
       Visit(kind.data.get_elem_ptr, value);
       break;
     case KOOPA_RVT_GET_PTR:
+      Visit(kind.data.get_ptr, value);
       break;
     default:
       // 其他类型暂时遇不到
@@ -323,7 +324,7 @@ void Visit(const koopa_raw_load_t& load, const koopa_raw_value_t& value){
     riscv_code += la("t0", load.src->name+1);
     riscv_code += lw("t0", 0, "t0");
   }
-  else if(load.src->kind.tag == KOOPA_RVT_GET_ELEM_PTR){
+  else if(load.src->kind.tag == KOOPA_RVT_GET_ELEM_PTR||load.src->kind.tag == KOOPA_RVT_GET_PTR){
     riscv_code += lw("t0", val_stack[load.src],"sp");
     riscv_code += lw("t0", 0, "t0");
   }
@@ -348,7 +349,7 @@ void Visit(const koopa_raw_store_t& store, const koopa_raw_value_t& value){
     riscv_code += li("t0", store.value->kind.data.integer.value);
   }
   else if(store.value->kind.tag == KOOPA_RVT_FUNC_ARG_REF){
-
+    
   }
   else{
     riscv_code += lw("t0", val_stack[store.value], "sp");
@@ -368,7 +369,7 @@ void Visit(const koopa_raw_store_t& store, const koopa_raw_value_t& value){
     riscv_code += la("t1", store.dest->name+1);
     riscv_code += sw("t0", 0, "t1");
   }
-  else if(store.dest->kind.tag == KOOPA_RVT_GET_ELEM_PTR){
+  else if(store.dest->kind.tag == KOOPA_RVT_GET_ELEM_PTR||store.dest->kind.tag == KOOPA_RVT_GET_PTR){
     riscv_code += lw("t1", val_stack[store.dest],"sp");
     riscv_code += sw("t0", 0, "t1");
   }
@@ -444,10 +445,6 @@ void Visit(const koopa_raw_global_alloc_t& global_alloc, const koopa_raw_value_t
     riscv_code += "\t.word "+std::to_string(global_alloc.init->kind.data.integer.value)+"\n";
   }
   else if(global_alloc.init->kind.tag == KOOPA_RVT_AGGREGATE){
-  //   for(size_t i=0;i<global_alloc.init->kind.data.aggregate.elems.len;i++){
-  //     auto elem = reinterpret_cast<koopa_raw_value_t>(global_alloc.init->kind.data.aggregate.elems.buffer[i]);
-  //     riscv_code += "\t.word "+std::to_string(elem->kind.data.integer.value)+"\n";
-  //   }
     init_global_array(global_alloc.init);
   }
   riscv_code += "\n";
@@ -460,18 +457,53 @@ void Visit(const koopa_raw_get_elem_ptr_t& get_elem_ptr, const koopa_raw_value_t
   }
   if(get_elem_ptr.src->kind.tag == KOOPA_RVT_ALLOC)
     riscv_code += addi("t0", "sp", val_stack[get_elem_ptr.src]);
-  else if(get_elem_ptr.src->kind.tag == KOOPA_RVT_GET_ELEM_PTR){
+  else if(get_elem_ptr.src->kind.tag == KOOPA_RVT_GET_ELEM_PTR||get_elem_ptr.src->kind.tag == KOOPA_RVT_GET_PTR){
     riscv_code += lw("t0", val_stack[get_elem_ptr.src],"sp");
   }
   else if(get_elem_ptr.src->kind.tag == KOOPA_RVT_GLOBAL_ALLOC){
     riscv_code += la("t0", get_elem_ptr.src->name+1);
   }
+
   if(get_elem_ptr.index->kind.tag == KOOPA_RVT_INTEGER)
     riscv_code += li("t1", get_elem_ptr.index->kind.data.integer.value);
   else{
     riscv_code += lw("t1", val_stack[get_elem_ptr.index],"sp");
   }
   riscv_code += li("t2", getTypeSize(get_elem_ptr.src->ty->data.pointer.base->data.array.base));
+  riscv_code += mul("t1", "t1", "t2");
+  riscv_code += add("t0", "t0", "t1");
+  if(val_stack.find(value)==val_stack.end()){
+    val_stack[value] = val_stack_idx;
+    val_stack_idx += 4;
+  }
+  riscv_code += sw("t0", val_stack[value],"sp");
+}
+
+void Visit(const koopa_raw_get_ptr_t& get_ptr, const koopa_raw_value_t& value){
+  if(val_stack.find(get_ptr.src)==val_stack.end()&&get_ptr.src->kind.tag!= KOOPA_RVT_GLOBAL_ALLOC){
+    val_stack[get_ptr.src] = val_stack_idx;
+    val_stack_idx += getTypeSize(get_ptr.src->ty->data.pointer.base);
+  }
+  if(get_ptr.src->kind.tag == KOOPA_RVT_ALLOC){
+    riscv_code += addi("t0", "sp", val_stack[get_ptr.src]);
+  }
+  else if(get_ptr.src->kind.tag == KOOPA_RVT_GLOBAL_ALLOC){
+    riscv_code += la("t0", get_ptr.src->name+1);
+  }
+  else if(get_ptr.src->kind.tag == KOOPA_RVT_GET_ELEM_PTR||get_ptr.src->kind.tag == KOOPA_RVT_GET_PTR){
+    riscv_code += lw("t0", val_stack[get_ptr.src],"sp");
+  }
+  else{
+    riscv_code += lw("t0", val_stack[get_ptr.src],"sp");
+  }
+
+  if(get_ptr.index->kind.tag == KOOPA_RVT_INTEGER){
+    riscv_code += li("t1", get_ptr.index->kind.data.integer.value);
+  }
+  else{
+    riscv_code += lw("t1", val_stack[get_ptr.index],"sp");
+  }
+  riscv_code += li("t2", getTypeSize(get_ptr.src->ty->data.pointer.base));
   riscv_code += mul("t1", "t1", "t2");
   riscv_code += add("t0", "t0", "t1");
   if(val_stack.find(value)==val_stack.end()){
