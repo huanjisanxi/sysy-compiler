@@ -7,6 +7,7 @@ bool has_call = false;
 int func_arg_idx = 0;
 std::unordered_map<koopa_raw_value_t, int> val_stack;
 
+
 extern std::string riscv_code;
 
 bool idx_imm(int idx){
@@ -203,6 +204,12 @@ void Visit(const koopa_raw_value_t &value) {
       Visit(kind.data.binary, value);
       break;
     case KOOPA_RVT_ALLOC:
+      if(val_stack.find(value)==val_stack.end()){
+        val_stack[value] = val_stack_idx;
+        // val_stack_idx+=getTypeSize(value->ty->data.pointer.base);
+        // val_stack_idx += 4;
+        //how???
+      }
       break;
     case KOOPA_RVT_STORE:
       Visit(kind.data.store, value);
@@ -349,7 +356,6 @@ void Visit(const koopa_raw_store_t& store, const koopa_raw_value_t& value){
     riscv_code += li("t0", store.value->kind.data.integer.value);
   }
   else if(store.value->kind.tag == KOOPA_RVT_FUNC_ARG_REF){
-    
   }
   else{
     riscv_code += lw("t0", val_stack[store.value], "sp");
