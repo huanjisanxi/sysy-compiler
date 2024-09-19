@@ -18,10 +18,10 @@ void optimize_riscv_code() {
                continue;
             }
             if(sw[1]==lw[1]){
-                to_remove_idx.push_back(i);
+                to_remove_idx.push_back(i+1);
             }
             else{
-                riscv_code_list[i+1] = "\tmv "+lw[1]+", "+sw[1]+"\n";
+                riscv_code_list[i+1] = "\tmv "+lw[1].substr(0,2)+", "+sw[1].substr(0,2)+"\n";
             }
             i++;
         }

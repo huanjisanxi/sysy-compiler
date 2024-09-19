@@ -438,7 +438,30 @@ void Visit(const koopa_raw_call_t& call, const koopa_raw_value_t& value){
   }
 }
 
+bool all_zero(const koopa_raw_value_t& value){
+  if(value->kind.tag == KOOPA_RVT_INTEGER){
+    if(value->kind.data.integer.value==0)
+      return true;
+    else
+      return false;
+
+  }
+  else{
+    auto elem = value->kind.data.aggregate.elems;
+    for(int i=0;i<elem.len;i++){
+      if(!all_zero(reinterpret_cast<koopa_raw_value_t>(elem.buffer[i]))){
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
 void init_global_array(const koopa_raw_value_t& value){
+  if(all_zero(value)){
+    riscv_code += "\t.zero " + std::to_string(getTypeSize(value->ty))+'\n';
+    return;
+  }
   if(value->kind.tag == KOOPA_RVT_INTEGER){
     riscv_code += "\t.word "+std::to_string(value->kind.data.integer.value)+"\n";
   }
@@ -457,6 +480,9 @@ void Visit(const koopa_raw_global_alloc_t& global_alloc, const koopa_raw_value_t
   }
   else if(global_alloc.init->kind.tag == KOOPA_RVT_AGGREGATE){
     init_global_array(global_alloc.init);
+  }
+  else if(global_alloc.init->kind.tag == KOOPA_RVT_ZERO_INIT){
+    riscv_code += "\t.zero " + std::to_string(getTypeSize(global_alloc.init->ty))+'\n';
   }
   riscv_code += "\n";
 }

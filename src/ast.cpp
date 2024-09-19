@@ -7,6 +7,7 @@ int ident_id(std::string ident);
 void init2array(BaseExprAST** start, int* len_start, int* len_end, const VarInitValAST* var_init_val);
 std::string array2Aggregate(BaseExprAST** init_array, int* idx, int* dim, int* dim_end);
 std::string array2ptr(BaseExprAST** init_array, int* idx, std::string base_ptr, int* dim, int* dim_end);
+bool all_zero(BaseExprAST** init_array, int* idx, int* dim, int* dim_end);
 
 void CompUnitAST::Dump() const  {
     std::cout << "CompUnitAST { ";
@@ -948,8 +949,14 @@ std::string VarDefAST::koopa_ir() const {
                 str += ", " + std::to_string(*it) + "]";
             }
             str += ", ";
-            int idx = 0;
-            str += array2Aggregate(init_array, &idx, dim_len, dim_len+len.size());
+            int idx=0;
+            if(all_zero(init_array, &idx, dim_len, dim_len+len.size())){
+                str+="zeroinit\n";
+            }
+            else{
+                idx = 0;
+                str += array2Aggregate(init_array, &idx, dim_len, dim_len+len.size());
+            }
             str += "\n";
         }
     }
@@ -975,6 +982,21 @@ std::string array2ptr(BaseExprAST** init_array, int* idx,std::string base_ptr, i
         }
     }
     return ret;
+}
+
+bool all_zero(BaseExprAST** init_array, int* idx, int* dim, int* dim_end){
+    for(int i=0;i<*dim;i++){
+        if(dim+1==dim_end){
+            if(init_array[*idx]){
+                if(init_array[*idx]->getVal()!=0) return false;
+            }
+            *idx+=1;
+        }
+        else{
+            if(!all_zero(init_array, idx, dim+1, dim_end))  return false;
+        }
+    }
+    return true;
 }
 
 std::string array2Aggregate(BaseExprAST** init_array, int* idx, int* dim, int* dim_end){
