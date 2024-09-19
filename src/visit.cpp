@@ -34,6 +34,7 @@ std::string lw(std::string reg, int imm, std::string reg2){
   if(idx_imm(imm))
     return "\tlw " + reg + ", " + std::to_string(imm) + "("+reg2+")\n";
   else{
+    // return "\tli t0, "+std::to_string(imm)+"\n"+"\tlw "+reg+", t0("+reg2+")\n";
     return "\tli t3, "+ std::to_string(imm)+"\n"
           +"\tadd t3, t3, "+reg2+"\n"
           +"\tlw "+reg+", 0(t3)\n";

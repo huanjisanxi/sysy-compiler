@@ -10,6 +10,8 @@
 #include <set>
 #include "my_var.h"
 #include <stack>
+#include <sstream>
+#include "optim.h"
 
 
 using namespace std;
@@ -39,6 +41,7 @@ int ptr_cnt=0;
 int test_val ;
 
 std::string riscv_code="";
+std::vector<std::string> riscv_code_list;
 
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
@@ -120,7 +123,12 @@ int main(int argc, const char *argv[]) {
     // 处理 raw program
     // ...
     Visit(raw);
-    std::cout<<riscv_code<<std::endl;
+    // std::cout<<riscv_code<<std::endl;
+    std::istringstream stream(riscv_code);
+    std::string line;
+    while(std::getline(stream, line)) riscv_code_list.push_back(line);
+    // optimize_riscv_code();
+    for(auto i: riscv_code_list) std::cout<<i<<std::endl;
 
     // 处理完成, 释放 raw program builder 占用的内存
     // 注意, raw program 中所有的指针指向的内存均为 raw program builder 的内存
