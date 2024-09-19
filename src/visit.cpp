@@ -1,12 +1,13 @@
 #include "visit.h"
 #include <unordered_map>
+#include <set>
 
 int val_stack_cnt = 0;
 int val_stack_idx = 0;
 bool has_call = false;
 int func_arg_idx = 0;
 std::unordered_map<koopa_raw_value_t, int> val_stack;
-
+std::set<koopa_raw_value_t> is_ptr;
 
 extern std::string riscv_code;
 
@@ -80,14 +81,14 @@ std::string sgt(std::string reg, std::string reg1, std::string reg2){
 
 size_t getTypeSize(koopa_raw_type_t ty){
   switch(ty->tag){
-  case KOOPA_RTT_INT32:
-    return 4;
-  case KOOPA_RTT_ARRAY:
-    return ty->data.array.len * getTypeSize(ty->data.array.base);
-  case KOOPA_RTT_POINTER:
-    return 4;
-  default:
-    return 0;
+    case KOOPA_RTT_INT32:
+      return 4;
+    case KOOPA_RTT_ARRAY:
+      return ty->data.array.len * getTypeSize(ty->data.array.base);
+    case KOOPA_RTT_POINTER:
+      return 4;
+    default:
+      return 0;
   }
   return 0;
 }
@@ -173,6 +174,10 @@ void Visit(const koopa_raw_function_t &func) {
     }
   }
   Visit(func->bbs);
+  for(auto it=val_stack.begin();it!=val_stack.end();it++) {
+    // riscv_code += std::string(it->first->name) + std::to_string(it->second) + ":\n";
+    riscv_code += std::to_string(it->second) + ":\n";
+  }
 }
 
 // 访问基本块
@@ -206,9 +211,12 @@ void Visit(const koopa_raw_value_t &value) {
     case KOOPA_RVT_ALLOC:
       if(val_stack.find(value)==val_stack.end()){
         val_stack[value] = val_stack_idx;
-        // val_stack_idx+=getTypeSize(value->ty->data.pointer.base);
+        val_stack_idx+=getTypeSize(value->ty->data.pointer.base);
         // val_stack_idx += 4;
         //how???
+        if(value->ty->data.pointer.base->tag==KOOPA_RTT_POINTER){
+          is_ptr.insert(value);
+        }
       }
       break;
     case KOOPA_RVT_STORE:
@@ -325,7 +333,12 @@ void Visit(const koopa_raw_binary_t& binary, const koopa_raw_value_t& value){
 
 void Visit(const koopa_raw_load_t& load, const koopa_raw_value_t& value){
   if(load.src->kind.tag == KOOPA_RVT_ALLOC){
+    // if(is_ptr.find(load.src)!=is_ptr.end()){
+    //   riscv_code += lw("t0", val_stack[load.src],"sp");
+    //   riscv_code += lw("t0", 0, "t0");
+    // }else{
     riscv_code += lw("t0", val_stack[load.src],"sp");
+    // }
   }
   else if(load.src->kind.tag == KOOPA_RVT_GLOBAL_ALLOC){
     riscv_code += la("t0", load.src->name+1);
@@ -334,6 +347,9 @@ void Visit(const koopa_raw_load_t& load, const koopa_raw_value_t& value){
   else if(load.src->kind.tag == KOOPA_RVT_GET_ELEM_PTR||load.src->kind.tag == KOOPA_RVT_GET_PTR){
     riscv_code += lw("t0", val_stack[load.src],"sp");
     riscv_code += lw("t0", 0, "t0");
+  }
+  else{
+    assert(false);
   }
 
   if(val_stack.find(value)!=val_stack.end()){
@@ -348,8 +364,9 @@ void Visit(const koopa_raw_load_t& load, const koopa_raw_value_t& value){
 
 void Visit(const koopa_raw_store_t& store, const koopa_raw_value_t& value){
   if(val_stack.find(store.dest)==val_stack.end()&&store.dest->kind.tag != KOOPA_RVT_GLOBAL_ALLOC){
-    val_stack[store.dest] = val_stack_idx;
-    val_stack_idx += 4;
+    // val_stack[store.dest] = val_stack_idx;
+    // val_stack_idx += 4;
+    assert(false);
   }
 
   if(store.value->kind.tag == KOOPA_RVT_INTEGER){
